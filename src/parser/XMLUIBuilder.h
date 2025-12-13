@@ -215,6 +215,11 @@ private:
     QString m_currentFilePath;
     QMap<QString, std::function<void()>> m_buttonCallbacks;
     QMap<QString, std::function<void(const QVariant&)>> m_watchCallbacks;
+    
+    // 错误覆盖层
+    QWidget* m_errorOverlay = nullptr;
+    void showErrorOverlay(const QString& errorMsg, int line, int column);
+    void hideErrorOverlay();
 };
 
 } // namespace Quik

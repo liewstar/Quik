@@ -187,8 +187,12 @@ void XMLUIBuilder::reload() {
     if (!doc.setContent(content, &errorMsg, &errorLine, &errorColumn)) {
         qWarning() << "[Quik] Hot reload: XML parse error at line" << errorLine 
                    << "- waiting for valid XML...";
+        showErrorOverlay(errorMsg, errorLine, errorColumn);
         return;  // XML无效，保持旧UI不变
     }
+    
+    // XML有效，隐藏错误覆盖层
+    hideErrorOverlay();
     
     qDebug() << "[Quik] Hot reloading:" << m_currentFilePath;
     
@@ -435,6 +439,78 @@ bool XMLUIBuilder::isLayoutTag(const QString& tagName) const {
         "HBoxLayout", "VBoxLayout", "FormLayout", "GridLayout"
     };
     return layouts.contains(tagName);
+}
+
+void XMLUIBuilder::showErrorOverlay(const QString& errorMsg, int line, int column) {
+    if (!m_rootWidget) return;
+    
+    QWidget* parent = m_rootWidget->parentWidget();
+    if (!parent) parent = m_rootWidget;
+    
+    // 创建或更新错误覆盖层
+    if (!m_errorOverlay) {
+        m_errorOverlay = new QWidget(parent);
+        m_errorOverlay->setObjectName("QuikErrorOverlay");
+        m_errorOverlay->setStyleSheet(
+            "QWidget#QuikErrorOverlay {"
+            "  background-color: rgba(220, 38, 38, 0.95);"
+            "  border-radius: 8px;"
+            "  padding: 16px;"
+            "}"
+            "QLabel#errorTitle {"
+            "  color: white;"
+            "  font-size: 16px;"
+            "  font-weight: bold;"
+            "}"
+            "QLabel#errorMsg {"
+            "  color: rgba(255, 255, 255, 0.9);"
+            "  font-size: 13px;"
+            "  font-family: Consolas, Monaco, monospace;"
+            "}"
+            "QLabel#errorHint {"
+            "  color: rgba(255, 255, 255, 0.7);"
+            "  font-size: 12px;"
+            "}"
+        );
+        
+        auto* layout = new QVBoxLayout(m_errorOverlay);
+        layout->setSpacing(8);
+        
+        auto* titleLabel = new QLabel("XML Parse Error");
+        titleLabel->setObjectName("errorTitle");
+        layout->addWidget(titleLabel);
+        
+        auto* msgLabel = new QLabel();
+        msgLabel->setObjectName("errorMsg");
+        msgLabel->setWordWrap(true);
+        layout->addWidget(msgLabel);
+        
+        auto* hintLabel = new QLabel("Fix the error and save to reload");
+        hintLabel->setObjectName("errorHint");
+        layout->addWidget(hintLabel);
+    }
+    
+    // 更新错误信息
+    auto* msgLabel = m_errorOverlay->findChild<QLabel*>("errorMsg");
+    if (msgLabel) {
+        msgLabel->setText(QString("Line %1, Column %2:\n%3")
+                         .arg(line).arg(column).arg(errorMsg));
+    }
+    
+    // 定位到父容器底部
+    m_errorOverlay->setParent(parent);
+    m_errorOverlay->adjustSize();
+    int x = (parent->width() - m_errorOverlay->width()) / 2;
+    int y = parent->height() - m_errorOverlay->height() - 16;
+    m_errorOverlay->move(x, y);
+    m_errorOverlay->raise();
+    m_errorOverlay->show();
+}
+
+void XMLUIBuilder::hideErrorOverlay() {
+    if (m_errorOverlay) {
+        m_errorOverlay->hide();
+    }
 }
 
 } // namespace Quik

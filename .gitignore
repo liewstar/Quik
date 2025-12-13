@@ -9,3 +9,4 @@ example/.qtc_clangd
 Makefile
 example/release
 example/example.pro.user
+Quik.pro.user
