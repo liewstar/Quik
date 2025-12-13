@@ -1,0 +1,258 @@
+#include "XMLUIBuilder.h"
+#include <QFile>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QPushButton>
+#include <QLabel>
+#include <QLineEdit>
+#include <QDebug>
+
+namespace Quik {
+
+XMLUIBuilder::XMLUIBuilder(QObject* parent)
+    : QObject(parent)
+    , m_context(new QuikContext(this))
+{
+}
+
+XMLUIBuilder::~XMLUIBuilder() = default;
+
+QWidget* XMLUIBuilder::buildFromFile(const QString& filePath, QWidget* parent) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString error = QString("Cannot open file: %1").arg(filePath);
+        qWarning() << "[Quik]" << error;
+        emit buildError(error);
+        return nullptr;
+    }
+    
+    QString content = QString::fromUtf8(file.readAll());
+    file.close();
+    
+    return buildFromString(content, parent);
+}
+
+QWidget* XMLUIBuilder::buildFromString(const QString& xmlContent, QWidget* parent) {
+    QDomDocument doc;
+    QString errorMsg;
+    int errorLine, errorColumn;
+    
+    if (!doc.setContent(xmlContent, &errorMsg, &errorLine, &errorColumn)) {
+        QString error = QString("XML parse error at line %1, column %2: %3")
+                        .arg(errorLine).arg(errorColumn).arg(errorMsg);
+        qWarning() << "[Quik]" << error;
+        emit buildError(error);
+        return nullptr;
+    }
+    
+    QDomElement root = doc.documentElement();
+    if (root.isNull()) {
+        emit buildError("Empty XML document");
+        return nullptr;
+    }
+    
+    qDebug() << "[Quik] Building UI from root element:" << root.tagName();
+    
+    // 创建根容器
+    m_rootWidget = new QWidget(parent);
+    auto* rootLayout = new QVBoxLayout(m_rootWidget);
+    rootLayout->setContentsMargins(10, 10, 10, 10);
+    rootLayout->setSpacing(8);
+    
+    // 处理所有子元素
+    processChildren(root, m_rootWidget);
+    
+    // 初始化所有绑定（触发初始状态）
+    m_context->initializeBindings();
+    
+    qDebug() << "[Quik] UI build completed";
+    emit buildCompleted(m_rootWidget);
+    
+    return m_rootWidget;
+}
+
+QWidget* XMLUIBuilder::getWidget(const QString& varName) const {
+    return m_context->getWidget(varName);
+}
+
+QVariant XMLUIBuilder::getValue(const QString& varName) const {
+    return m_context->getValue(varName);
+}
+
+void XMLUIBuilder::setValue(const QString& varName, const QVariant& value) {
+    m_context->setValue(varName, value);
+}
+
+void XMLUIBuilder::connectButton(const QString& varName, std::function<void()> callback) {
+    QWidget* widget = getWidget(varName);
+    if (auto* button = qobject_cast<QPushButton*>(widget)) {
+        connect(button, &QPushButton::clicked, this, callback);
+    } else {
+        qWarning() << "[Quik] Widget is not a button:" << varName;
+    }
+}
+
+QVariantMap XMLUIBuilder::getAllValues() const {
+    return m_context->getContext();
+}
+
+void XMLUIBuilder::watch(const QString& varName, std::function<void(const QVariant&)> callback) {
+    m_context->watch(varName, callback);
+}
+
+void XMLUIBuilder::unwatch(const QString& varName) {
+    m_context->unwatch(varName);
+}
+
+bool XMLUIBuilder::isValid() const {
+    return getValidationErrors().isEmpty();
+}
+
+QMap<QString, QString> XMLUIBuilder::getValidationErrors() const {
+    QMap<QString, QString> errors;
+    
+    if (!m_rootWidget) return errors;
+    
+    // 遍历所有LineEdit检查验证状态
+    QList<QLineEdit*> lineEdits = m_rootWidget->findChildren<QLineEdit*>();
+    for (QLineEdit* lineEdit : lineEdits) {
+        if (lineEdit->property("_Quik_hasError").toBool()) {
+            // 获取变量名
+            QString varName = lineEdit->property("_Quik_varName").toString();
+            if (varName.isEmpty()) {
+                varName = lineEdit->objectName();
+            }
+            errors[varName] = lineEdit->toolTip();
+        }
+    }
+    
+    return errors;
+}
+
+QWidget* XMLUIBuilder::buildElement(const QDomElement& element, QWidget* parent) {
+    QString tagName = element.tagName();
+    
+    // 跳过Choice元素（由ComboBox内部处理）
+    if (tagName == "Choice") {
+        return nullptr;
+    }
+    
+    // 使用工厂创建组件
+    QWidget* widget = WidgetFactory::instance().create(tagName, element, m_context);
+    
+    if (!widget) {
+        // 创建错误占位符，显示未知标签
+        QString error = QString("Unknown tag: <%1>").arg(tagName);
+        qWarning() << "[Quik]" << error;
+        emit buildError(error);
+        
+        // 返回一个红色错误标签作为占位符
+        auto* errorLabel = new QLabel(QString("[Error: %1]").arg(error));
+        errorLabel->setStyleSheet("QLabel { color: red; font-weight: bold; padding: 5px; border: 1px dashed red; }");
+        return errorLabel;
+    }
+    
+    // 如果是容器，递归处理子元素
+    if (isContainerTag(tagName)) {
+        processChildren(element, widget);
+    }
+    
+    return widget;
+}
+
+void XMLUIBuilder::processChildren(const QDomElement& element, QWidget* container) {
+    QLayout* layout = container->layout();
+    if (!layout) {
+        layout = new QVBoxLayout(container);
+        layout->setContentsMargins(5, 5, 5, 5);
+        layout->setSpacing(5);
+    }
+    
+    QDomElement child = element.firstChildElement();
+    while (!child.isNull()) {
+        QString tagName = child.tagName();
+        
+        // 跳过Choice和Item（由父组件处理）
+        if (tagName == "Choice" || tagName == "Item") {
+            child = child.nextSiblingElement();
+            continue;
+        }
+        
+        // 处理addStretch
+        if (tagName == "addStretch") {
+            int stretch = child.attribute("stretch", "1").toInt();
+            if (auto* boxLayout = qobject_cast<QBoxLayout*>(layout)) {
+                boxLayout->addStretch(stretch);
+            }
+            child = child.nextSiblingElement();
+            continue;
+        }
+        
+        QWidget* childWidget = buildElement(child, container);
+        
+        if (childWidget) {
+            // 检查是否是stretch占位符
+            if (childWidget->objectName() == "__stretch__") {
+                int stretch = childWidget->property("stretchFactor").toInt();
+                if (auto* boxLayout = qobject_cast<QBoxLayout*>(layout)) {
+                    boxLayout->addStretch(stretch);
+                }
+                delete childWidget;
+                child = child.nextSiblingElement();
+                continue;
+            }
+            
+            // 检查是否需要添加标签
+            QString title = child.attribute("title");
+            
+            // 某些组件需要带标签的行布局
+            bool needsLabel = !title.isEmpty() && 
+                             (tagName == "LineEdit" || tagName == "ComboBox" || 
+                              tagName == "SpinBox" || tagName == "DoubleSpinBox");
+            
+            if (needsLabel) {
+                QWidget* row = createLabeledRow(title, childWidget);
+                layout->addWidget(row);
+            } else {
+                layout->addWidget(childWidget);
+            }
+        }
+        
+        child = child.nextSiblingElement();
+    }
+}
+
+QWidget* XMLUIBuilder::createLabeledRow(const QString& title, QWidget* widget) {
+    auto* row = new QWidget();
+    auto* layout = new QHBoxLayout(row);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(10);
+    
+    auto* label = new QLabel(title);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    label->setMinimumWidth(120);
+    
+    layout->addWidget(label);
+    layout->addWidget(widget, 1);  // 组件占据剩余空间
+    
+    return row;
+}
+
+bool XMLUIBuilder::isContainerTag(const QString& tagName) const {
+    static const QStringList containers = {
+        "GroupBox", "InnerGroupBox", "Frame", "Widget", "ScrollArea",
+        "HLayoutWidget", "VLayoutWidget"
+    };
+    return containers.contains(tagName);
+}
+
+bool XMLUIBuilder::isLayoutTag(const QString& tagName) const {
+    static const QStringList layouts = {
+        "HBoxLayout", "VBoxLayout", "FormLayout", "GridLayout"
+    };
+    return layouts.contains(tagName);
+}
+
+} // namespace Quik

@@ -1,0 +1,24 @@
+<Panel>
+    <GroupBox title="基本设置">
+        <CheckBox title="启用功能" var="chkEnable" default="1"/>
+        <LineEdit title="数值" var="txtValue" default="100" visible="$chkEnable==1" valid="double"/>
+        <ComboBox title="模式" var="cboMode" default="mode1">
+            <Choice text="模式一" val="mode1"/>
+            <Choice text="模式二" val="mode2"/>
+            <Choice text="模式三" val="mode3"/>
+        </ComboBox>
+        <SpinBox title="数量" var="spnCount" min="0" max="100" default="10"/>
+    </GroupBox>
+    
+    <GroupBox title="高级选项" visible="$cboMode==mode2">
+        <CheckBox title="选项A" var="chkOptionA"/>
+        <CheckBox title="选项B" var="chkOptionB"/>
+        <LineEdit title="参数" var="txtParam" visible="$chkOptionA==1"/>
+    </GroupBox>
+    
+    <HLayoutWidget>
+        <addStretch/>
+        <PushButton text="应用" var="btnApply"/>
+        <PushButton text="取消" var="btnCancel"/>
+    </HLayoutWidget>
+</Panel>

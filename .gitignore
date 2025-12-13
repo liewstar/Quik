@@ -1,0 +1,11 @@
+
+.vscode
+*.idx
+example/.qtc_clangd
+*.obj
+*.Debug
+*.Release
+*.stash
+Makefile
+example/release
+example/example.pro.user
