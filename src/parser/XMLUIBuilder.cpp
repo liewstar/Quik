@@ -212,11 +212,37 @@ void XMLUIBuilder::processChildren(const QDomElement& element, QWidget* containe
                              (tagName == "LineEdit" || tagName == "ComboBox" || 
                               tagName == "SpinBox" || tagName == "DoubleSpinBox");
             
+            // 获取暂存的 visible/enabled 属性
+            QString visible = childWidget->property("_Quik_visible").toString();
+            QString enabled = childWidget->property("_Quik_enabled").toString();
+            
+            // 确定绑定目标：带标签的行容器 或 组件本身
+            QWidget* bindTarget = childWidget;
+            
             if (needsLabel) {
                 QWidget* row = createLabeledRow(title, childWidget);
+                bindTarget = row;  // 绑定到整个行容器
                 layout->addWidget(row);
             } else {
                 layout->addWidget(childWidget);
+            }
+            
+            // 应用 visible 绑定到目标
+            if (!visible.isEmpty()) {
+                if (ExpressionParser::isExpression(visible)) {
+                    m_context->bindVisible(bindTarget, visible);
+                } else {
+                    bindTarget->setVisible(visible == "true" || visible == "1");
+                }
+            }
+            
+            // 应用 enabled 绑定到目标
+            if (!enabled.isEmpty()) {
+                if (ExpressionParser::isExpression(enabled)) {
+                    m_context->bindEnabled(bindTarget, enabled);
+                } else {
+                    bindTarget->setEnabled(enabled == "true" || enabled == "1");
+                }
             }
         }
         

@@ -781,32 +781,16 @@ void WidgetFactory::applyCommonAttributes(QWidget* widget, const QDomElement& el
         widget->setFixedHeight(fixedHeight);
     }
     
-    // visible属性
+    // visible/enabled 属性暂存到 property 中，由 XMLUIBuilder 统一处理
+    // 这样可以支持带 title 的组件将绑定应用到整个行容器
     QString visible = getAttribute(element, "visible");
     if (!visible.isEmpty()) {
-        if (ExpressionParser::isExpression(visible)) {
-            // 表达式绑定
-            if (context) {
-                context->bindVisible(widget, visible);
-            }
-        } else {
-            // 静态值
-            widget->setVisible(visible == "true" || visible == "1");
-        }
+        widget->setProperty("_Quik_visible", visible);
     }
     
-    // enabled属性
     QString enabled = getAttribute(element, "enabled");
     if (!enabled.isEmpty()) {
-        if (ExpressionParser::isExpression(enabled)) {
-            // 表达式绑定
-            if (context) {
-                context->bindEnabled(widget, enabled);
-            }
-        } else {
-            // 静态值
-            widget->setEnabled(enabled == "true" || enabled == "1");
-        }
+        widget->setProperty("_Quik_enabled", enabled);
     }
 }
 
