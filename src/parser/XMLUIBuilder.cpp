@@ -1,4 +1,5 @@
 #include "XMLUIBuilder.h"
+#include "Quik/Quik.h"
 #include <QFile>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -8,6 +9,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QDebug>
+#include <QTimer>
 
 namespace Quik {
 
@@ -31,7 +33,16 @@ QWidget* XMLUIBuilder::buildFromFile(const QString& filePath, QWidget* parent) {
     QString content = QString::fromUtf8(file.readAll());
     file.close();
     
-    return buildFromString(content, parent);
+    QWidget* result = buildFromString(content, parent);
+    
+    // 自动启用热更新（由 QUIK_HOT_RELOAD_ENABLED 控制）
+#if QUIK_HOT_RELOAD_ENABLED
+    if (result) {
+        enableHotReload(filePath);
+    }
+#endif
+    
+    return result;
 }
 
 QWidget* XMLUIBuilder::buildFromString(const QString& xmlContent, QWidget* parent) {
@@ -86,6 +97,9 @@ void XMLUIBuilder::setValue(const QString& varName, const QVariant& value) {
 }
 
 void XMLUIBuilder::connectButton(const QString& varName, std::function<void()> callback) {
+    // 保存回调以便热更新后重新连接
+    m_buttonCallbacks[varName] = callback;
+    
     QWidget* widget = getWidget(varName);
     if (auto* button = qobject_cast<QPushButton*>(widget)) {
         connect(button, &QPushButton::clicked, this, callback);
@@ -99,11 +113,153 @@ QVariantMap XMLUIBuilder::getAllValues() const {
 }
 
 void XMLUIBuilder::watch(const QString& varName, std::function<void(const QVariant&)> callback) {
+    // 保存回调以便热更新后重新连接
+    m_watchCallbacks[varName] = callback;
     m_context->watch(varName, callback);
 }
 
 void XMLUIBuilder::unwatch(const QString& varName) {
+    m_watchCallbacks.remove(varName);
     m_context->unwatch(varName);
+}
+
+// ========== 热更新实现 ==========
+
+void XMLUIBuilder::enableHotReload(const QString& filePath) {
+    if (m_watcher) {
+        disableHotReload();
+    }
+    
+    m_currentFilePath = filePath;
+    m_watcher = new QFileSystemWatcher(this);
+    m_watcher->addPath(filePath);
+    
+    connect(m_watcher, &QFileSystemWatcher::fileChanged,
+            this, &XMLUIBuilder::onFileChanged);
+    
+    qDebug() << "[Quik] Hot reload enabled for:" << filePath;
+}
+
+void XMLUIBuilder::disableHotReload() {
+    if (m_watcher) {
+        disconnect(m_watcher, nullptr, this, nullptr);
+        delete m_watcher;
+        m_watcher = nullptr;
+        m_currentFilePath.clear();
+        qDebug() << "[Quik] Hot reload disabled";
+    }
+}
+
+bool XMLUIBuilder::isHotReloadEnabled() const {
+    return m_watcher != nullptr;
+}
+
+void XMLUIBuilder::onFileChanged(const QString& path) {
+    Q_UNUSED(path)
+    
+    // 延迟100ms重载，避免文件写入未完成
+    QTimer::singleShot(100, this, &XMLUIBuilder::reload);
+    
+    // 文件变化后需要重新添加监听（某些系统会移除）
+    if (m_watcher && !m_currentFilePath.isEmpty()) {
+        m_watcher->addPath(m_currentFilePath);
+    }
+}
+
+void XMLUIBuilder::reload() {
+    if (m_currentFilePath.isEmpty()) {
+        qWarning() << "[Quik] No file path set for reload";
+        return;
+    }
+    
+    // 1. 先验证XML是否有效（不销毁旧UI）
+    QFile file(m_currentFilePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[Quik] Hot reload: Cannot open file";
+        return;
+    }
+    QString content = QString::fromUtf8(file.readAll());
+    file.close();
+    
+    QDomDocument doc;
+    QString errorMsg;
+    int errorLine, errorColumn;
+    if (!doc.setContent(content, &errorMsg, &errorLine, &errorColumn)) {
+        qWarning() << "[Quik] Hot reload: XML parse error at line" << errorLine 
+                   << "- waiting for valid XML...";
+        return;  // XML无效，保持旧UI不变
+    }
+    
+    qDebug() << "[Quik] Hot reloading:" << m_currentFilePath;
+    
+    // 2. XML有效，保存当前状态
+    QVariantMap state = getAllValues();
+    QWidget* oldRoot = m_rootWidget;
+    QWidget* parent = oldRoot ? oldRoot->parentWidget() : nullptr;
+    QLayout* parentLayout = parent ? parent->layout() : nullptr;
+    int layoutIndex = -1;
+    
+    // 找到旧widget在layout中的位置
+    if (parentLayout && oldRoot) {
+        for (int i = 0; i < parentLayout->count(); ++i) {
+            if (parentLayout->itemAt(i)->widget() == oldRoot) {
+                layoutIndex = i;
+                break;
+            }
+        }
+    }
+    
+    // 3. 重建Context
+    delete m_context;
+    m_context = new QuikContext(this);
+    m_rootWidget = nullptr;
+    
+    // 4. 重建UI（使用已验证的内容）
+    QWidget* newRoot = buildFromString(content, parent);
+    if (!newRoot) {
+        qWarning() << "[Quik] Hot reload failed to build UI";
+        // 恢复旧Context
+        m_context = new QuikContext(this);
+        m_rootWidget = oldRoot;
+        return;
+    }
+    
+    // 5. 替换旧UI
+    if (parentLayout && layoutIndex >= 0) {
+        parentLayout->removeWidget(oldRoot);
+        if (auto* boxLayout = qobject_cast<QBoxLayout*>(parentLayout)) {
+            boxLayout->insertWidget(layoutIndex, newRoot);
+        } else {
+            parentLayout->addWidget(newRoot);
+        }
+    }
+    
+    // 销毁旧UI
+    if (oldRoot) {
+        oldRoot->hide();
+        oldRoot->deleteLater();
+    }
+    
+    // 6. 恢复状态值
+    for (auto it = state.begin(); it != state.end(); ++it) {
+        setValue(it.key(), it.value());
+    }
+    
+    // 7. 重新连接按钮回调
+    for (auto it = m_buttonCallbacks.begin(); it != m_buttonCallbacks.end(); ++it) {
+        QWidget* widget = getWidget(it.key());
+        if (auto* button = qobject_cast<QPushButton*>(widget)) {
+            connect(button, &QPushButton::clicked, this, it.value());
+        }
+    }
+    
+    // 8. 重新连接watch回调
+    for (auto it = m_watchCallbacks.begin(); it != m_watchCallbacks.end(); ++it) {
+        m_context->watch(it.key(), it.value());
+    }
+    
+    qDebug() << "[Quik] Hot reload completed";
+    emit reloaded();
 }
 
 bool XMLUIBuilder::isValid() const {

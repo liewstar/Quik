@@ -98,4 +98,30 @@ inline QString QuikXmlPath(const char* file, const char* xmlName) {
 #define Quik_BUILD(builder, filename) \
     (builder).buildFromFile(Quik_XML(filename))
 
+/**
+ * @brief 全局热更新开关
+ * 
+ * 发布最终版本时，将此值改为 false 即可禁用所有热更新功能
+ */
+#define QUIK_HOT_RELOAD_ENABLED true
+
+/**
+ * @brief 启用热更新
+ * @param builder XMLUIBuilder实例
+ * @param filename XML文件名
+ * 
+ * 使用示例：
+ * @code
+ * Quik::XMLUIBuilder builder;
+ * QWidget* ui = Quik_BUILD(builder, "MyPanel.xml");
+ * Quik_HOT_RELOAD(builder, "MyPanel.xml");
+ * @endcode
+ */
+#if QUIK_HOT_RELOAD_ENABLED
+#define Quik_HOT_RELOAD(builder, filename) \
+    (builder).enableHotReload(Quik_XML(filename))
+#else
+#define Quik_HOT_RELOAD(builder, filename) ((void)0)
+#endif
+
 #endif // Quik_H

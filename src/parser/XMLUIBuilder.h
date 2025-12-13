@@ -9,6 +9,7 @@
 #include <QtXml/QDomElement>
 #include <QString>
 #include <QMap>
+#include <QFileSystemWatcher>
 #include <functional>
 
 namespace Quik {
@@ -101,6 +102,37 @@ public:
      */
     void unwatch(const QString& varName);
     
+    // ========== 热更新 (Hot Reload) ==========
+    
+    /**
+     * @brief 启用热更新（仅开发模式推荐使用）
+     * 
+     * 监听XML文件变化，自动重新加载UI并保持状态
+     * 
+     * @code
+     * builder.buildFromFile("MyPanel.xml");
+     * #ifdef QT_DEBUG
+     * builder.enableHotReload("MyPanel.xml");
+     * #endif
+     * @endcode
+     */
+    void enableHotReload(const QString& filePath);
+    
+    /**
+     * @brief 禁用热更新
+     */
+    void disableHotReload();
+    
+    /**
+     * @brief 检查热更新是否启用
+     */
+    bool isHotReloadEnabled() const;
+    
+    /**
+     * @brief 手动触发重新加载
+     */
+    void reload();
+    
     // ========== 表单验证 ==========
     
     /**
@@ -127,6 +159,14 @@ signals:
      * @param errorMessage 错误信息
      */
     void buildError(const QString& errorMessage);
+    
+    /**
+     * @brief 热更新完成信号
+     */
+    void reloaded();
+    
+private slots:
+    void onFileChanged(const QString& path);
     
 private:
     /**
@@ -169,6 +209,12 @@ private:
 private:
     QuikContext* m_context;
     QWidget* m_rootWidget = nullptr;
+    
+    // 热更新相关
+    QFileSystemWatcher* m_watcher = nullptr;
+    QString m_currentFilePath;
+    QMap<QString, std::function<void()>> m_buttonCallbacks;
+    QMap<QString, std::function<void(const QVariant&)>> m_watchCallbacks;
 };
 
 } // namespace Quik

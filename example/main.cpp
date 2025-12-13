@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     
     auto* layout = new QVBoxLayout(&dialog);
     
-    // Build UI from XML file
+    // Build UI from XML file (热更新已自动启用)
     Quik::XMLUIBuilder builder;
     QWidget* ui = Quik_BUILD(builder, "ExamplePanel.xml");
     layout->addWidget(ui);
