@@ -95,4 +95,12 @@ void QuikViewModel::setValue<QPair<QVector3D, QVector3D>>(const QString& name, c
     m_builder->setValue(name + "_p2_2", QString::number(value.second.z()));
 }
 
+// 列表数据访问器（用于 q-for）
+ListVar QuikViewModel::list(const QString& name) {
+    return ListVar(
+        [this, name]() -> QVariantList { return m_builder->getListData(name); },
+        [this, name](const QVariantList& v) { m_builder->setListData(name, v); }
+    );
+}
+
 } // namespace Quik

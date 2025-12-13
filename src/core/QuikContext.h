@@ -180,6 +180,28 @@ private:
     
     // 单变量监听
     QMap<QString, std::function<void(const QVariant&)>> m_watchers;  // 变量名 → 监听回调
+    
+    // 循环渲染数据源 (q-for)
+    QMap<QString, QVariantList> m_listData;
+    
+    // q-for 绑定信息
+    struct QForBinding {
+        QWidget* widget;        // ComboBox 等组件
+        QString listName;       // 数据源名称
+        QString itemVar;        // 循环变量名 (如 "item")
+        QString textTemplate;   // text 模板
+        QString valTemplate;    // val 模板
+    };
+    QList<QForBinding> m_qforBindings;
+    
+public:
+    void setListData(const QString& name, const QVariantList& items);
+    QVariantList getListData(const QString& name) const { return m_listData.value(name); }
+    void registerQForBinding(QWidget* widget, const QString& listName, 
+                            const QString& itemVar, const QString& textTpl, const QString& valTpl);
+    
+private:
+    void updateQForBindings(const QString& listName);
 };
 
 } // namespace Quik

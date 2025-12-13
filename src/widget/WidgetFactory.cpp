@@ -238,21 +238,43 @@ QWidget* WidgetFactory::createComboBox(const QDomElement& element, QuikContext* 
     QDomElement choice = element.firstChildElement("Choice");
     int index = 0;
     while (!choice.isNull()) {
-        QString text = getAttribute(choice, "text");
-        QString val = getAttribute(choice, "val");
-        
-        // 将val存储为itemData
-        if (!val.isEmpty()) {
-            comboBox->addItem(text, val);
-            // 检查是否是默认选项
-            if (val == defaultVal) {
-                defaultIndex = index;
+        // 检查是否有 q-for 属性
+        QString qFor = getAttribute(choice, "q-for");
+        if (!qFor.isEmpty() && context) {
+            // 解析 q-for="item in listName" 格式
+            QRegularExpression re("(\\w+)\\s+in\\s+(\\w+)");
+            QRegularExpressionMatch match = re.match(qFor);
+            if (match.hasMatch()) {
+                QString itemVar = match.captured(1);  // "item"
+                QString listName = match.captured(2); // "listName"
+                
+                // 获取模板属性
+                QString textTemplate = getAttribute(choice, "text");
+                QString valTemplate = getAttribute(choice, "val");
+                
+                // 注册 q-for 绑定（支持响应式更新）
+                context->registerQForBinding(comboBox, listName, itemVar, textTemplate, valTemplate);
+                
+                // 如果数据源已存在，会自动填充
             }
         } else {
-            comboBox->addItem(text);
+            // 普通 Choice 元素
+            QString text = getAttribute(choice, "text");
+            QString val = getAttribute(choice, "val");
+            
+            // 将val存储为itemData
+            if (!val.isEmpty()) {
+                comboBox->addItem(text, val);
+                // 检查是否是默认选项
+                if (val == defaultVal) {
+                    defaultIndex = index;
+                }
+            } else {
+                comboBox->addItem(text);
+            }
+            ++index;
         }
         
-        ++index;
         choice = choice.nextSiblingElement("Choice");
     }
     

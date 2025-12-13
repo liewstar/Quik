@@ -123,6 +123,19 @@ void XMLUIBuilder::unwatch(const QString& varName) {
     m_context->unwatch(varName);
 }
 
+// ========== 循环渲染数据源 ==========
+
+void XMLUIBuilder::setListData(const QString& name, const QVariantList& items) {
+    m_listData[name] = items;
+    if (m_context) {
+        m_context->setListData(name, items);
+    }
+}
+
+QVariantList XMLUIBuilder::getListData(const QString& name) const {
+    return m_listData.value(name);
+}
+
 // ========== 热更新实现 ==========
 
 void XMLUIBuilder::enableHotReload(const QString& filePath) {
@@ -217,6 +230,11 @@ void XMLUIBuilder::reload() {
     delete m_context;
     m_context = new QuikContext(this);
     m_rootWidget = nullptr;
+    
+    // 恢复数据源到新Context
+    for (auto it = m_listData.begin(); it != m_listData.end(); ++it) {
+        m_context->setListData(it.key(), it.value());
+    }
     
     // 4. 重建UI（使用已验证的内容）
     QWidget* newRoot = buildFromString(content, parent);

@@ -102,6 +102,34 @@ public:
      */
     void unwatch(const QString& varName);
     
+    // ========== 循环渲染数据源 (q-for) ==========
+    
+    /**
+     * @brief 设置循环渲染的数据源
+     * @param name 数据源名称（对应 q-for="item in name" 中的 name）
+     * @param items 数据列表，每项是一个 QVariantMap，如 {{"text", "选项1"}, {"val", "opt1"}}
+     * 
+     * 使用示例：
+     * @code
+     * // XML:
+     * // <ComboBox var="cbo">
+     * //     <Choice q-for="item in modes" text="$item.text" val="$item.val"/>
+     * // </ComboBox>
+     * 
+     * // C++:
+     * QVariantList modes;
+     * modes << QVariantMap{{"text", "模式一"}, {"val", "mode1"}};
+     * modes << QVariantMap{{"text", "模式二"}, {"val", "mode2"}};
+     * builder.setListData("modes", modes);
+     * @endcode
+     */
+    void setListData(const QString& name, const QVariantList& items);
+    
+    /**
+     * @brief 获取数据源
+     */
+    QVariantList getListData(const QString& name) const;
+    
     // ========== 热更新 (Hot Reload) ==========
     
     /**
@@ -220,6 +248,9 @@ private:
     QWidget* m_errorOverlay = nullptr;
     void showErrorOverlay(const QString& errorMsg, int line, int column);
     void hideErrorOverlay();
+    
+    // 循环渲染数据源
+    QMap<QString, QVariantList> m_listData;
 };
 
 } // namespace Quik

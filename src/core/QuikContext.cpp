@@ -311,4 +311,75 @@ void QuikContext::unwatch(const QString& name) {
     qDebug() << "[Quik] Unwatched variable:" << name;
 }
 
+// ========== 循环渲染 (q-for) ==========
+
+void QuikContext::setListData(const QString& name, const QVariantList& items) {
+    m_listData[name] = items;
+    updateQForBindings(name);
+}
+
+void QuikContext::registerQForBinding(QWidget* widget, const QString& listName,
+                                      const QString& itemVar, const QString& textTpl, const QString& valTpl) {
+    QForBinding binding;
+    binding.widget = widget;
+    binding.listName = listName;
+    binding.itemVar = itemVar;
+    binding.textTemplate = textTpl;
+    binding.valTemplate = valTpl;
+    m_qforBindings.append(binding);
+    
+    // 如果数据源已存在，立即更新
+    if (m_listData.contains(listName)) {
+        updateQForBindings(listName);
+    }
+}
+
+void QuikContext::updateQForBindings(const QString& listName) {
+    QVariantList items = m_listData.value(listName);
+    
+    for (const QForBinding& binding : m_qforBindings) {
+        if (binding.listName != listName) continue;
+        
+        // 目前只支持 QComboBox
+        if (auto* comboBox = qobject_cast<QComboBox*>(binding.widget)) {
+            // 保存当前选中值
+            QString currentVal = comboBox->currentData().toString();
+            
+            // 清空并重新填充
+            comboBox->clear();
+            int newIndex = 0;
+            int idx = 0;
+            
+            for (const QVariant& itemData : items) {
+                QVariantMap itemMap = itemData.toMap();
+                
+                QString text = binding.textTemplate;
+                QString val = binding.valTemplate;
+                
+                // 替换 $item.xxx
+                for (auto it = itemMap.begin(); it != itemMap.end(); ++it) {
+                    QString placeholder = QString("$%1.%2").arg(binding.itemVar).arg(it.key());
+                    text.replace(placeholder, it.value().toString());
+                    val.replace(placeholder, it.value().toString());
+                }
+                
+                if (!val.isEmpty()) {
+                    comboBox->addItem(text, val);
+                    if (val == currentVal) {
+                        newIndex = idx;
+                    }
+                } else {
+                    comboBox->addItem(text);
+                }
+                ++idx;
+            }
+            
+            // 恢复选中
+            if (comboBox->count() > 0) {
+                comboBox->setCurrentIndex(newIndex);
+            }
+        }
+    }
+}
+
 } // namespace Quik

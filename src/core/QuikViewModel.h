@@ -79,6 +79,66 @@ private:
 };
 
 /**
+ * @brief 列表数据访问器 - 用于 q-for 数据源
+ * 
+ * 使用示例：
+ *   ListVar modes = vm.list("modes");
+ *   modes = {
+ *       {{"text", "模式一"}, {"val", "mode1"}},
+ *       {{"text", "模式二"}, {"val", "mode2"}}
+ *   };
+ */
+class QUIK_API ListVar {
+public:
+    ListVar() : m_getter(nullptr), m_setter(nullptr) {}
+    
+    ListVar(std::function<QVariantList()> getter, std::function<void(const QVariantList&)> setter)
+        : m_getter(getter), m_setter(setter) {}
+    
+    // 获取值
+    QVariantList operator()() const {
+        return m_getter ? m_getter() : QVariantList();
+    }
+    
+    // 设置值
+    void operator()(const QVariantList& val) {
+        if (m_setter) m_setter(val);
+    }
+    
+    // 赋值操作符
+    ListVar& operator=(const QVariantList& val) {
+        if (m_setter) m_setter(val);
+        return *this;
+    }
+    
+    // 支持初始化列表赋值
+    ListVar& operator=(std::initializer_list<QVariantMap> items) {
+        QVariantList list;
+        for (const auto& item : items) {
+            list << item;
+        }
+        if (m_setter) m_setter(list);
+        return *this;
+    }
+    
+    // 追加项
+    void append(const QVariantMap& item) {
+        QVariantList list = m_getter ? m_getter() : QVariantList();
+        list << item;
+        if (m_setter) m_setter(list);
+    }
+    
+    // 清空
+    void clear() {
+        if (m_setter) m_setter(QVariantList());
+    }
+
+private:
+    std::function<QVariantList()> m_getter;
+    std::function<void(const QVariantList&)> m_setter;
+};
+
+/**
  * @brief 响应式视图模型 - 提供类型安全的变量访问
  * 
  * 使用示例：
@@ -95,6 +155,10 @@ private:
  *       maxSize = 0.5;           // 赋值，UI自动更新
  *   }
  *   mode = "on";                 // QString也支持
+ *   
+ *   // q-for 数据源
+ *   auto modes = vm.list("modes");
+ *   modes = {{{"text", "模式一"}, {"val", "mode1"}}};
  */
 class QUIK_API QuikViewModel {
 public:
@@ -113,6 +177,13 @@ public:
             [this, name](const T& v) { setValue<T>(name, v); }
         );
     }
+    
+    /**
+     * @brief 创建列表数据访问器（用于 q-for）
+     * @param name 数据源名称（对应 q-for="item in name" 中的 name）
+     * @return 列表访问器
+     */
+    ListVar list(const QString& name);
     
     // 获取原始builder
     XMLUIBuilder* builder() const { return m_builder; }

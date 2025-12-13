@@ -3,11 +3,9 @@
         <CheckBox title="启用功能" var="chkEnable" default="1"/>
         <LineEdit title="数值" var="txtValue" default="100" visible="$chkEnable==1" valid="double"/>
         <ComboBox title="模式" var="cboMode" default="mode1">
-            <Choice text="模式一" val="mode1"/>
-            <Choice text="模式二" val="mode2"/>
-            <Choice text="模式三" val="mode3"/>
+            <Choice q-for="item in modes" text="$item.label" val="$item.value"/>
         </ComboBox>
-        <SpinBox title="数量" var="spnCount" min="0" max="100" default="10"/>
+        <SpinBox title="数量" var="spnCount" min="0" max="1000" default="10"/>
     </GroupBox>
     
     <GroupBox title="高级选项" visible="$cboMode==mode2">
