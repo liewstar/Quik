@@ -13,8 +13,11 @@
         <CheckBox title="选项B" var="chkOptionB"/>
         <LineEdit title="参数" var="txtParam" visible="$chkOptionA==1"/>
     </GroupBox>
-
-    <LineEdit title="测试输入" var="txtTest" default="100" valid="double"/>
+    
+    <GroupBox title="滑块和进度条">
+        <Slider title="音量" var="volume" min="0" max="100" default="50" ticks="below" tickInterval="10"/>
+        <ProgressBar title="进度" var="progress" min="0" max="100" default="0"/>
+    </GroupBox>
     <HLayoutWidget>
         <PushButton text="应用" var="btnApply"/>
         <PushButton text="取消" var="btnCancel"/>

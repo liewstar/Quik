@@ -29,6 +29,8 @@ int main(int argc, char *argv[])
     auto txtValue = vm.var<double>("txtValue");
     auto cboMode = vm.var<QString>("cboMode");
     auto spnCount = vm.var<int>("spnCount");
+    auto volume = vm.var<int>("volume");
+    auto progress = vm.var<int>("progress");
     
     // 定义 q-for 数据源访问器
     auto modes = vm.list("modes");
@@ -50,6 +52,12 @@ int main(int argc, char *argv[])
         qDebug() << "cboMode changed:" << v.toString();
     });
     
+    // 监听滑块变化，同步更新进度条
+    builder.watch("volume", [&](const QVariant& v) {
+        qDebug() << "volume changed:" << v.toInt();
+        builder.setValue("progress", v.toInt());
+    });
+    
     // Connect buttons
     builder.connectButton("btnApply", [&]() {
         qDebug() << "========== Apply ==========";
@@ -57,6 +65,8 @@ int main(int argc, char *argv[])
         qDebug() << "Value:" << txtValue();
         qDebug() << "Mode:" << cboMode();
         qDebug() << "Count:" << spnCount();
+        qDebug() << "Volume:" << volume();
+        qDebug() << "Progress:" << progress();
         qDebug() << "===========================";
         
         // 测试：点击应用后动态添加一个新模式

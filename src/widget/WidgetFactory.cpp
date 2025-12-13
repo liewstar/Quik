@@ -18,6 +18,8 @@
 #include <QRegularExpression>
 #include <QListWidget>
 #include <QTabBar>
+#include <QSlider>
+#include <QProgressBar>
 #include <QDebug>
 
 namespace Quik {
@@ -84,6 +86,8 @@ void WidgetFactory::registerBuiltinWidgets() {
     registerCreator("addStretch", createStretch);
     registerCreator("PointLineEdit", createPointLineEdit);
     registerCreator("TwoPointLineEdit", createTwoPointLineEdit);
+    registerCreator("Slider", createSlider);
+    registerCreator("ProgressBar", createProgressBar);
     
     m_initialized = true;
     qDebug() << "[Quik] Registered" << m_creators.size() << "builtin widgets";
@@ -864,6 +868,78 @@ double WidgetFactory::getDoubleAttribute(const QDomElement& element, const QStri
     bool ok;
     double result = value.toDouble(&ok);
     return ok ? result : defaultValue;
+}
+
+QWidget* WidgetFactory::createSlider(const QDomElement& element, QuikContext* context) {
+    auto* slider = new QSlider(Qt::Horizontal);
+    
+    int min = getIntAttribute(element, "min", 0);
+    int max = getIntAttribute(element, "max", 100);
+    int defaultVal = getIntAttribute(element, "default", min);
+    int step = getIntAttribute(element, "step", 1);
+    
+    slider->setRange(min, max);
+    slider->setValue(defaultVal);
+    slider->setSingleStep(step);
+    slider->setPageStep(step * 10);
+    
+    // 方向
+    QString orientation = getAttribute(element, "orientation", "horizontal");
+    if (orientation == "vertical" || orientation == "ver") {
+        slider->setOrientation(Qt::Vertical);
+    }
+    
+    // 刻度
+    QString tickPosition = getAttribute(element, "ticks");
+    if (tickPosition == "above") {
+        slider->setTickPosition(QSlider::TicksAbove);
+    } else if (tickPosition == "below") {
+        slider->setTickPosition(QSlider::TicksBelow);
+    } else if (tickPosition == "both") {
+        slider->setTickPosition(QSlider::TicksBothSides);
+    }
+    
+    int tickInterval = getIntAttribute(element, "tickInterval", 0);
+    if (tickInterval > 0) {
+        slider->setTickInterval(tickInterval);
+    }
+    
+    applyCommonAttributes(slider, element, context);
+    return slider;
+}
+
+QWidget* WidgetFactory::createProgressBar(const QDomElement& element, QuikContext* context) {
+    auto* progressBar = new QProgressBar();
+    
+    int min = getIntAttribute(element, "min", 0);
+    int max = getIntAttribute(element, "max", 100);
+    int defaultVal = getIntAttribute(element, "default", min);
+    
+    progressBar->setRange(min, max);
+    progressBar->setValue(defaultVal);
+    
+    // 方向
+    QString orientation = getAttribute(element, "orientation", "horizontal");
+    if (orientation == "vertical" || orientation == "ver") {
+        progressBar->setOrientation(Qt::Vertical);
+    }
+    
+    // 文本格式
+    QString format = getAttribute(element, "format");
+    if (!format.isEmpty()) {
+        progressBar->setFormat(format);
+    }
+    
+    // 是否显示文本
+    bool textVisible = getBoolAttribute(element, "textVisible", true);
+    progressBar->setTextVisible(textVisible);
+    
+    // 是否反向
+    bool inverted = getBoolAttribute(element, "inverted", false);
+    progressBar->setInvertedAppearance(inverted);
+    
+    applyCommonAttributes(progressBar, element, context);
+    return progressBar;
 }
 
 } // namespace Quik

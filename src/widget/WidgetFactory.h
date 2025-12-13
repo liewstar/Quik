@@ -87,6 +87,8 @@ private:
     static QWidget* createStretch(const QDomElement& element, QuikContext* context);
     static QWidget* createPointLineEdit(const QDomElement& element, QuikContext* context);
     static QWidget* createTwoPointLineEdit(const QDomElement& element, QuikContext* context);
+    static QWidget* createSlider(const QDomElement& element, QuikContext* context);
+    static QWidget* createProgressBar(const QDomElement& element, QuikContext* context);
     
     // ========== 辅助方法 ==========
     static void applyCommonAttributes(QWidget* widget, const QDomElement& element, QuikContext* context);

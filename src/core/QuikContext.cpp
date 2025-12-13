@@ -6,6 +6,8 @@
 #include <QDoubleSpinBox>
 #include <QRadioButton>
 #include <QLabel>
+#include <QSlider>
+#include <QProgressBar>
 #include <QDebug>
 
 namespace Quik {
@@ -231,6 +233,22 @@ void QuikContext::autoConnectWidget(const QString& name, QWidget* widget) {
         return;
     }
     
+    // QSlider
+    if (auto* slider = qobject_cast<QSlider*>(widget)) {
+        m_values[name] = slider->value();
+        
+        connect(slider, &QSlider::valueChanged, this, [this, name](int value) {
+            setValue(name, value);
+        });
+        return;
+    }
+    
+    // QProgressBar - 只读显示，只需初始化值
+    if (auto* progressBar = qobject_cast<QProgressBar*>(widget)) {
+        m_values[name] = progressBar->value();
+        return;
+    }
+    
     // QLabel - 只读显示，只需初始化值
     if (auto* label = qobject_cast<QLabel*>(widget)) {
         m_values[name] = label->text();
@@ -290,6 +308,14 @@ void QuikContext::syncSingleWidget(QWidget* widget, const QVariant& value) {
     // QDoubleSpinBox
     else if (auto* doubleSpinBox = qobject_cast<QDoubleSpinBox*>(widget)) {
         doubleSpinBox->setValue(value.toDouble());
+    }
+    // QSlider
+    else if (auto* slider = qobject_cast<QSlider*>(widget)) {
+        slider->setValue(value.toInt());
+    }
+    // QProgressBar
+    else if (auto* progressBar = qobject_cast<QProgressBar*>(widget)) {
+        progressBar->setValue(value.toInt());
     }
     // QLabel - 用于LabelList中的Item
     else if (auto* label = qobject_cast<QLabel*>(widget)) {
