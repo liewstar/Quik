@@ -43,23 +43,27 @@ int main(int argc, char *argv[])
         {{"label", "mode3"}, {"value", "mode3"}}
     };
     
-    // Watch variable changes
-    builder.watch("chkEnable", [](const QVariant& v) {
-        qDebug() << "chkEnable changed:" << v.toBool();
+    // 类型安全的监听 - 无需硬编码变量名
+    chkEnable.watch([](bool v) {
+        qDebug() << "chkEnable changed:" << v;
     });
     
-    builder.watch("cboMode", [](const QVariant& v) {
-        qDebug() << "cboMode changed:" << v.toString();
+    cboMode.watch([](QString v) {
+        qDebug() << "cboMode changed:" << v;
     });
     
     // 监听滑块变化，同步更新进度条
-    builder.watch("volume", [&](const QVariant& v) {
-        qDebug() << "volume changed:" << v.toInt();
-        builder.setValue("progress", v.toInt());
+    volume.watch([&](int v) {
+        qDebug() << "volume changed:" << v;
+        progress = v;
     });
     
-    // Connect buttons
-    builder.connectButton("btnApply", [&]() {
+    // 定义按钮访问器
+    auto btnApply = vm.button("btnApply");
+    auto btnCancel = vm.button("btnCancel");
+    
+    // Connect buttons - 使用 btnApply.onClick()
+    btnApply.onClick([&]() {
         qDebug() << "========== Apply ==========";
         qDebug() << "Enable:" << chkEnable();
         qDebug() << "Value:" << txtValue();
@@ -72,10 +76,11 @@ int main(int argc, char *argv[])
         // 测试：点击应用后动态添加一个新模式
         static int counter = 3;
         modes.append({{"label", QString("new mode%1").arg(++counter)}, {"value", QString("mode%1").arg(counter)}});
+        spnCount = spnCount + 1;
         qDebug() << "已动态添加新模式到 ComboBox";
     });
     
-    builder.connectButton("btnCancel", [&dialog]() {
+    btnCancel.onClick([&dialog]() {
         dialog.reject();
     });
     

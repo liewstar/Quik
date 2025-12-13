@@ -103,4 +103,42 @@ ListVar QuikViewModel::list(const QString& name) {
     );
 }
 
+// watchVar 特化 - 类型安全的监听
+template<>
+void QuikViewModel::watchVar<bool>(const QString& name, std::function<void(const bool&)> callback) {
+    m_builder->watch(name, [callback](const QVariant& v) {
+        callback(v.toInt() != 0);
+    });
+}
+
+template<>
+void QuikViewModel::watchVar<int>(const QString& name, std::function<void(const int&)> callback) {
+    m_builder->watch(name, [callback](const QVariant& v) {
+        callback(v.toInt());
+    });
+}
+
+template<>
+void QuikViewModel::watchVar<double>(const QString& name, std::function<void(const double&)> callback) {
+    m_builder->watch(name, [callback](const QVariant& v) {
+        callback(v.toDouble());
+    });
+}
+
+template<>
+void QuikViewModel::watchVar<QString>(const QString& name, std::function<void(const QString&)> callback) {
+    m_builder->watch(name, [callback](const QVariant& v) {
+        callback(v.toString());
+    });
+}
+
+// 创建按钮访问器
+ButtonVar QuikViewModel::button(const QString& name) {
+    return ButtonVar(
+        [this, name](std::function<void()> callback) {
+            m_builder->connectButton(name, callback);
+        }
+    );
+}
+
 } // namespace Quik

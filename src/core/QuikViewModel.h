@@ -12,20 +12,23 @@ namespace Quik {
 class XMLUIBuilder;
 
 /**
- * @brief 变量访问器 - 提供类型安全的getter/setter
+ * @brief 变量访问器 - 提供类型安全的getter/setter/watch
  * 
  * 使用示例：
- *   Var<double> maxSize = vm.var<double>("maxSize");
- *   double v = maxSize();        // 获取值
- *   maxSize(0.5);                // 设置值，UI自动更新
+ *   auto maxSize = vm.var<double>("maxSize");
+ *   double v = maxSize;          // 隐式获取值
+ *   maxSize = 0.5;               // 赋值，UI自动更新
+ *   maxSize.watch([](double v) { ... });  // 类型安全的监听
  */
 template<typename T>
 class Var {
 public:
-    Var() : m_getter(nullptr), m_setter(nullptr) {}
+    Var() : m_getter(nullptr), m_setter(nullptr), m_watcher(nullptr) {}
     
-    Var(std::function<T()> getter, std::function<void(const T&)> setter)
-        : m_getter(getter), m_setter(setter) {}
+    Var(std::function<T()> getter, 
+        std::function<void(const T&)> setter,
+        std::function<void(std::function<void(const T&)>)> watcher = nullptr)
+        : m_getter(getter), m_setter(setter), m_watcher(watcher) {}
     
     // 获取值 - 函数调用风格
     T operator()() const {
@@ -72,10 +75,41 @@ public:
             m_setter(val);
         }
     }
+    
+    // 监听变化 - 类型安全，无需硬编码变量名
+    void watch(std::function<void(const T&)> callback) {
+        if (m_watcher) {
+            m_watcher(callback);
+        }
+    }
 
 private:
     std::function<T()> m_getter;
     std::function<void(const T&)> m_setter;
+    std::function<void(std::function<void(const T&)>)> m_watcher;
+};
+
+/**
+ * @brief 按钮访问器 - 提供类型安全的按钮事件绑定
+ * 
+ * 使用示例：
+ *   auto btnApply = vm.button("btnApply");
+ *   btnApply.onClick([&]() { ... });
+ */
+class QUIK_API ButtonVar {
+public:
+    ButtonVar() : m_connector(nullptr) {}
+    
+    ButtonVar(std::function<void(std::function<void()>)> connector)
+        : m_connector(connector) {}
+    
+    // 绑定点击事件
+    void onClick(std::function<void()> callback) {
+        if (m_connector) m_connector(callback);
+    }
+
+private:
+    std::function<void(std::function<void()>)> m_connector;
 };
 
 /**
@@ -174,7 +208,10 @@ public:
     Var<T> var(const QString& name) {
         return Var<T>(
             [this, name]() -> T { return getValue<T>(name); },
-            [this, name](const T& v) { setValue<T>(name, v); }
+            [this, name](const T& v) { setValue<T>(name, v); },
+            [this, name](std::function<void(const T&)> callback) {
+                watchVar<T>(name, callback);
+            }
         );
     }
     
@@ -185,6 +222,13 @@ public:
      */
     ListVar list(const QString& name);
     
+    /**
+     * @brief 创建按钮访问器
+     * @param name 按钮变量名
+     * @return 按钮访问器
+     */
+    ButtonVar button(const QString& name);
+    
     // 获取原始builder
     XMLUIBuilder* builder() const { return m_builder; }
 
@@ -194,6 +238,9 @@ private:
     
     template<typename T>
     void setValue(const QString& name, const T& value);
+    
+    template<typename T>
+    void watchVar(const QString& name, std::function<void(const T&)> callback);
     
     XMLUIBuilder* m_builder;
 };
@@ -208,6 +255,11 @@ template<> QUIK_API void QuikViewModel::setValue<bool>(const QString& name, cons
 template<> QUIK_API void QuikViewModel::setValue<int>(const QString& name, const int& value);
 template<> QUIK_API void QuikViewModel::setValue<double>(const QString& name, const double& value);
 template<> QUIK_API void QuikViewModel::setValue<QString>(const QString& name, const QString& value);
+
+template<> QUIK_API void QuikViewModel::watchVar<bool>(const QString& name, std::function<void(const bool&)> callback);
+template<> QUIK_API void QuikViewModel::watchVar<int>(const QString& name, std::function<void(const int&)> callback);
+template<> QUIK_API void QuikViewModel::watchVar<double>(const QString& name, std::function<void(const double&)> callback);
+template<> QUIK_API void QuikViewModel::watchVar<QString>(const QString& name, std::function<void(const QString&)> callback);
 
 } // namespace Quik
 
