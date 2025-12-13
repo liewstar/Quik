@@ -319,11 +319,13 @@ void QuikContext::setListData(const QString& name, const QVariantList& items) {
 }
 
 void QuikContext::registerQForBinding(QWidget* widget, const QString& listName,
-                                      const QString& itemVar, const QString& textTpl, const QString& valTpl) {
+                                      const QString& itemVar, const QString& indexVar,
+                                      const QString& textTpl, const QString& valTpl) {
     QForBinding binding;
     binding.widget = widget;
     binding.listName = listName;
     binding.itemVar = itemVar;
+    binding.indexVar = indexVar;
     binding.textTemplate = textTpl;
     binding.valTemplate = valTpl;
     m_qforBindings.append(binding);
@@ -361,6 +363,13 @@ void QuikContext::updateQForBindings(const QString& listName) {
                     QString placeholder = QString("$%1.%2").arg(binding.itemVar).arg(it.key());
                     text.replace(placeholder, it.value().toString());
                     val.replace(placeholder, it.value().toString());
+                }
+                
+                // 替换索引变量 $idx
+                if (!binding.indexVar.isEmpty()) {
+                    QString indexPlaceholder = QString("$%1").arg(binding.indexVar);
+                    text.replace(indexPlaceholder, QString::number(idx));
+                    val.replace(indexPlaceholder, QString::number(idx));
                 }
                 
                 if (!val.isEmpty()) {

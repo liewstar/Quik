@@ -189,6 +189,7 @@ private:
         QWidget* widget;        // ComboBox 等组件
         QString listName;       // 数据源名称
         QString itemVar;        // 循环变量名 (如 "item")
+        QString indexVar;       // 索引变量名 (如 "idx")，可为空
         QString textTemplate;   // text 模板
         QString valTemplate;    // val 模板
     };
@@ -198,7 +199,8 @@ public:
     void setListData(const QString& name, const QVariantList& items);
     QVariantList getListData(const QString& name) const { return m_listData.value(name); }
     void registerQForBinding(QWidget* widget, const QString& listName, 
-                            const QString& itemVar, const QString& textTpl, const QString& valTpl);
+                            const QString& itemVar, const QString& indexVar,
+                            const QString& textTpl, const QString& valTpl);
     
 private:
     void updateQForBindings(const QString& listName);

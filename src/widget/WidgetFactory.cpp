@@ -241,21 +241,36 @@ QWidget* WidgetFactory::createComboBox(const QDomElement& element, QuikContext* 
         // 检查是否有 q-for 属性
         QString qFor = getAttribute(choice, "q-for");
         if (!qFor.isEmpty() && context) {
-            // 解析 q-for="item in listName" 格式
-            QRegularExpression re("(\\w+)\\s+in\\s+(\\w+)");
-            QRegularExpressionMatch match = re.match(qFor);
-            if (match.hasMatch()) {
-                QString itemVar = match.captured(1);  // "item"
-                QString listName = match.captured(2); // "listName"
-                
+            // 解析 q-for 格式：
+            // 1. "item in listName"
+            // 2. "(item, index) in listName"
+            QString itemVar, indexVar, listName;
+            
+            // 尝试匹配带索引的格式: (item, index) in listName
+            QRegularExpression reWithIndex("\\(\\s*(\\w+)\\s*,\\s*(\\w+)\\s*\\)\\s+in\\s+(\\w+)");
+            QRegularExpressionMatch matchWithIndex = reWithIndex.match(qFor);
+            
+            if (matchWithIndex.hasMatch()) {
+                itemVar = matchWithIndex.captured(1);   // "item"
+                indexVar = matchWithIndex.captured(2);  // "index"
+                listName = matchWithIndex.captured(3);  // "listName"
+            } else {
+                // 尝试匹配简单格式: item in listName
+                QRegularExpression reSimple("(\\w+)\\s+in\\s+(\\w+)");
+                QRegularExpressionMatch matchSimple = reSimple.match(qFor);
+                if (matchSimple.hasMatch()) {
+                    itemVar = matchSimple.captured(1);
+                    listName = matchSimple.captured(2);
+                }
+            }
+            
+            if (!itemVar.isEmpty() && !listName.isEmpty()) {
                 // 获取模板属性
                 QString textTemplate = getAttribute(choice, "text");
                 QString valTemplate = getAttribute(choice, "val");
                 
                 // 注册 q-for 绑定（支持响应式更新）
-                context->registerQForBinding(comboBox, listName, itemVar, textTemplate, valTemplate);
-                
-                // 如果数据源已存在，会自动填充
+                context->registerQForBinding(comboBox, listName, itemVar, indexVar, textTemplate, valTemplate);
             }
         } else {
             // 普通 Choice 元素
