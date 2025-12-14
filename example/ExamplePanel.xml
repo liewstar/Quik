@@ -18,6 +18,16 @@
         <Slider title="音量" var="volume" min="0" max="100" default="50" ticks="below" tickInterval="10"/>
         <ProgressBar title="进度" var="progress" min="0" max="100" default="0"/>
     </GroupBox>
+    
+    <GroupBox title="坐标测试">
+        <HLayoutWidget>
+            <PointLineEdit title="" var="origin" hasButton="true"/>
+            <PointLineEdit title="" var="end" hasButton="true"/>
+        </HLayoutWidget>
+        
+        <TwoPointLineEdit title="范围" var="range" left="起点" right="终点"/>
+    </GroupBox>
+    
     <HLayoutWidget>
         <PushButton text="应用" var="btnApply"/>
         <PushButton text="取消" var="btnCancel"/>

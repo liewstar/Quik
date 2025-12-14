@@ -141,4 +141,43 @@ ButtonVar QuikViewModel::button(const QString& name) {
     );
 }
 
+// 创建三维坐标访问器（用于 PointLineEdit）
+PointVar QuikViewModel::point(const QString& name) {
+    return PointVar(
+        [this, name]() -> QVector3D { return getValue<QVector3D>(name); },
+        [this, name](const QVector3D& v) { setValue<QVector3D>(name, v); },
+        [this, name](std::function<void(const QVector3D&)> callback) {
+            // 监听三个子变量，任一变化时重新获取完整坐标并回调
+            auto wrappedCallback = [this, name, callback](const QVariant&) {
+                callback(getValue<QVector3D>(name));
+            };
+            m_builder->watch(name + "_0", wrappedCallback);
+            m_builder->watch(name + "_1", wrappedCallback);
+            m_builder->watch(name + "_2", wrappedCallback);
+        },
+        button(name + "_btn")
+    );
+}
+
+// 创建两点坐标访问器（用于 TwoPointLineEdit）
+TwoPointVar QuikViewModel::twoPoint(const QString& name) {
+    using PointPair = QPair<QVector3D, QVector3D>;
+    return TwoPointVar(
+        [this, name]() -> PointPair { return getValue<PointPair>(name); },
+        [this, name](const PointPair& v) { setValue<PointPair>(name, v); },
+        [this, name](std::function<void(const PointPair&)> callback) {
+            // 监听六个子变量，任一变化时重新获取完整坐标并回调
+            auto wrappedCallback = [this, name, callback](const QVariant&) {
+                callback(getValue<PointPair>(name));
+            };
+            m_builder->watch(name + "_p1_0", wrappedCallback);
+            m_builder->watch(name + "_p1_1", wrappedCallback);
+            m_builder->watch(name + "_p1_2", wrappedCallback);
+            m_builder->watch(name + "_p2_0", wrappedCallback);
+            m_builder->watch(name + "_p2_1", wrappedCallback);
+            m_builder->watch(name + "_p2_2", wrappedCallback);
+        }
+    );
+}
+
 } // namespace Quik

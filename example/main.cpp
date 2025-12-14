@@ -62,6 +62,25 @@ int main(int argc, char *argv[])
     auto btnApply = vm.button("btnApply");
     auto btnCancel = vm.button("btnCancel");
     
+    // ========== 测试 PointVar 和 TwoPointVar ==========
+    auto origin = vm.point("origin");
+    auto range = vm.twoPoint("range");
+    
+    // 监听坐标变化
+    origin.watch([](QVector3D pos) {
+        qDebug() << "origin changed:" << pos;
+    });
+    
+    range.watch([](QPair<QVector3D, QVector3D> pts) {
+        qDebug() << "range changed: p1=" << pts.first << " p2=" << pts.second;
+    });
+    
+    // 选择按钮点击
+    origin.button().onClick([&]() {
+        qDebug() << "origin button clicked, setting to (100, 200, 300)";
+        origin = QVector3D(100, 200, 300);
+    });
+    
     // Connect buttons - 使用 btnApply.onClick()
     btnApply.onClick([&]() {
         qDebug() << "========== Apply ==========";
@@ -71,6 +90,12 @@ int main(int argc, char *argv[])
         qDebug() << "Count:" << spnCount();
         qDebug() << "Volume:" << volume();
         qDebug() << "Progress:" << progress();
+        
+        // 打印坐标
+        QVector3D pos = origin;
+        qDebug() << "Origin:" << pos;
+        QPair<QVector3D, QVector3D> rangePts = range;
+        qDebug() << "Range: p1=" << rangePts.first << " p2=" << rangePts.second;
         qDebug() << "===========================";
         
         // 测试：点击应用后动态添加一个新模式

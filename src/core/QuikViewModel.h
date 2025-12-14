@@ -5,6 +5,8 @@
 #include <QString>
 #include <QVariant>
 #include <QMap>
+#include <QVector3D>
+#include <QPair>
 #include <functional>
 
 namespace Quik {
@@ -173,6 +175,58 @@ private:
 };
 
 /**
+ * @brief 三维坐标访问器 - 用于 PointLineEdit
+ * 
+ * 使用示例：
+ *   auto origin = vm.point("origin");
+ *   origin = QVector3D(1, 2, 3);
+ *   origin.watch([](QVector3D pos) { ... });
+ *   origin.button().onClick([&]() { ... });
+ */
+class QUIK_API PointVar : public Var<QVector3D> {
+public:
+    PointVar() : Var<QVector3D>(), m_button() {}
+    
+    PointVar(std::function<QVector3D()> getter,
+             std::function<void(const QVector3D&)> setter,
+             std::function<void(std::function<void(const QVector3D&)>)> watcher,
+             ButtonVar button)
+        : Var<QVector3D>(getter, setter, watcher), m_button(button) {}
+    
+    // 继承父类的赋值运算符
+    using Var<QVector3D>::operator=;
+    
+    // 获取关联的选择按钮
+    ButtonVar button() const { return m_button; }
+
+private:
+    ButtonVar m_button;
+};
+
+/**
+ * @brief 两点坐标访问器 - 用于 TwoPointLineEdit
+ * 
+ * 使用示例：
+ *   auto range = vm.twoPoint("range");
+ *   range = qMakePair(QVector3D(0,0,0), QVector3D(100,100,100));
+ *   range.watch([](QPair<QVector3D, QVector3D> pts) { ... });
+ */
+class QUIK_API TwoPointVar : public Var<QPair<QVector3D, QVector3D>> {
+public:
+    using PointPair = QPair<QVector3D, QVector3D>;
+    
+    TwoPointVar() : Var<PointPair>() {}
+    
+    TwoPointVar(std::function<PointPair()> getter,
+                std::function<void(const PointPair&)> setter,
+                std::function<void(std::function<void(const PointPair&)>)> watcher)
+        : Var<PointPair>(getter, setter, watcher) {}
+    
+    // 继承父类的赋值运算符
+    using Var<PointPair>::operator=;
+};
+
+/**
  * @brief 响应式视图模型 - 提供类型安全的变量访问
  * 
  * 使用示例：
@@ -228,6 +282,20 @@ public:
      * @return 按钮访问器
      */
     ButtonVar button(const QString& name);
+    
+    /**
+     * @brief 创建三维坐标访问器（用于 PointLineEdit）
+     * @param name 变量名
+     * @return 坐标访问器（支持 watch 和 button）
+     */
+    PointVar point(const QString& name);
+    
+    /**
+     * @brief 创建两点坐标访问器（用于 TwoPointLineEdit）
+     * @param name 变量名
+     * @return 两点坐标访问器（支持 watch）
+     */
+    TwoPointVar twoPoint(const QString& name);
     
     // 获取原始builder
     XMLUIBuilder* builder() const { return m_builder; }
