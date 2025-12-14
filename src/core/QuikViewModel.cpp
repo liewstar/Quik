@@ -1,5 +1,6 @@
 #include "QuikViewModel.h"
 #include "parser/XMLUIBuilder.h"
+#include "QuikContext.h"
 #include <QVector3D>
 
 namespace Quik {
@@ -144,6 +145,7 @@ ButtonVar QuikViewModel::button(const QString& name) {
 // 创建三维坐标访问器（用于 PointLineEdit）
 PointVar QuikViewModel::point(const QString& name) {
     return PointVar(
+        name,
         [this, name]() -> QVector3D { return getValue<QVector3D>(name); },
         [this, name](const QVector3D& v) { setValue<QVector3D>(name, v); },
         [this, name](std::function<void(const QVector3D&)> callback) {
@@ -163,6 +165,7 @@ PointVar QuikViewModel::point(const QString& name) {
 TwoPointVar QuikViewModel::twoPoint(const QString& name) {
     using PointPair = QPair<QVector3D, QVector3D>;
     return TwoPointVar(
+        name,
         [this, name]() -> PointPair { return getValue<PointPair>(name); },
         [this, name](const PointPair& v) { setValue<PointPair>(name, v); },
         [this, name](std::function<void(const PointPair&)> callback) {
@@ -178,6 +181,22 @@ TwoPointVar QuikViewModel::twoPoint(const QString& name) {
             m_builder->watch(name + "_p2_2", wrappedCallback);
         }
     );
+}
+
+// 监听多个变量（任一变化触发）
+void QuikViewModel::watch(std::initializer_list<std::reference_wrapper<const VarBase>> vars,
+                          std::function<void()> callback) {
+    for (const auto& varRef : vars) {
+        const VarBase& var = varRef.get();
+        m_builder->watch(var.name(), [callback](const QVariant&) {
+            callback();
+        });
+    }
+}
+
+// 监听所有变量变化
+void QuikViewModel::watchAll(std::function<void(const QString&, const QVariant&)> callback) {
+    QObject::connect(m_builder->context(), &QuikContext::variableChanged, callback);
 }
 
 } // namespace Quik

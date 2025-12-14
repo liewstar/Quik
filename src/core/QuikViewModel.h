@@ -8,10 +8,20 @@
 #include <QVector3D>
 #include <QPair>
 #include <functional>
+#include <initializer_list>
 
 namespace Quik {
 
 class XMLUIBuilder;
+
+/**
+ * @brief 变量基类 - 用于多变量监听
+ */
+class QUIK_API VarBase {
+public:
+    virtual ~VarBase() = default;
+    virtual QString name() const = 0;
+};
 
 /**
  * @brief 变量访问器 - 提供类型安全的getter/setter/watch
@@ -23,14 +33,18 @@ class XMLUIBuilder;
  *   maxSize.watch([](double v) { ... });  // 类型安全的监听
  */
 template<typename T>
-class Var {
+class Var : public VarBase {
 public:
     Var() : m_getter(nullptr), m_setter(nullptr), m_watcher(nullptr) {}
     
-    Var(std::function<T()> getter, 
+    Var(const QString& name,
+        std::function<T()> getter, 
         std::function<void(const T&)> setter,
         std::function<void(std::function<void(const T&)>)> watcher = nullptr)
-        : m_getter(getter), m_setter(setter), m_watcher(watcher) {}
+        : m_name(name), m_getter(getter), m_setter(setter), m_watcher(watcher) {}
+    
+    // 获取变量名
+    QString name() const override { return m_name; }
     
     // 获取值 - 函数调用风格
     T operator()() const {
@@ -86,6 +100,7 @@ public:
     }
 
 private:
+    QString m_name;
     std::function<T()> m_getter;
     std::function<void(const T&)> m_setter;
     std::function<void(std::function<void(const T&)>)> m_watcher;
@@ -187,11 +202,12 @@ class QUIK_API PointVar : public Var<QVector3D> {
 public:
     PointVar() : Var<QVector3D>(), m_button() {}
     
-    PointVar(std::function<QVector3D()> getter,
+    PointVar(const QString& name,
+             std::function<QVector3D()> getter,
              std::function<void(const QVector3D&)> setter,
              std::function<void(std::function<void(const QVector3D&)>)> watcher,
              ButtonVar button)
-        : Var<QVector3D>(getter, setter, watcher), m_button(button) {}
+        : Var<QVector3D>(name, getter, setter, watcher), m_button(button) {}
     
     // 继承父类的赋值运算符
     using Var<QVector3D>::operator=;
@@ -217,10 +233,11 @@ public:
     
     TwoPointVar() : Var<PointPair>() {}
     
-    TwoPointVar(std::function<PointPair()> getter,
+    TwoPointVar(const QString& name,
+                std::function<PointPair()> getter,
                 std::function<void(const PointPair&)> setter,
                 std::function<void(std::function<void(const PointPair&)>)> watcher)
-        : Var<PointPair>(getter, setter, watcher) {}
+        : Var<PointPair>(name, getter, setter, watcher) {}
     
     // 继承父类的赋值运算符
     using Var<PointPair>::operator=;
@@ -261,6 +278,7 @@ public:
     template<typename T>
     Var<T> var(const QString& name) {
         return Var<T>(
+            name,
             [this, name]() -> T { return getValue<T>(name); },
             [this, name](const T& v) { setValue<T>(name, v); },
             [this, name](std::function<void(const T&)> callback) {
@@ -296,6 +314,34 @@ public:
      * @return 两点坐标访问器（支持 watch）
      */
     TwoPointVar twoPoint(const QString& name);
+    
+    /**
+     * @brief 监听多个变量（任一变化触发）
+     * @param vars 变量列表
+     * @param callback 回调函数
+     * 
+     * 使用示例：
+     * @code
+     * vm.watch({enable, mode, count}, [&]() {
+     *     // 任意一个变化时触发
+     * });
+     * @endcode
+     */
+    void watch(std::initializer_list<std::reference_wrapper<const VarBase>> vars,
+               std::function<void()> callback);
+    
+    /**
+     * @brief 监听所有变量变化
+     * @param callback 回调函数，参数为变量名和新值
+     * 
+     * 使用示例：
+     * @code
+     * vm.watchAll([&](const QString& name, const QVariant& value) {
+     *     // 任意变量变化时触发
+     * });
+     * @endcode
+     */
+    void watchAll(std::function<void(const QString&, const QVariant&)> callback);
     
     // 获取原始builder
     XMLUIBuilder* builder() const { return m_builder; }

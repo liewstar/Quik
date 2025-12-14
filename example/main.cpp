@@ -58,6 +58,17 @@ int main(int argc, char *argv[])
         progress = v;
     });
     
+    // ========== 测试 watch 多个变量 ==========
+    vm.watch({chkEnable, cboMode, spnCount}, [&]() {
+        qDebug() << "=== 多变量监听触发 ===";
+        qDebug() << "enable:" << chkEnable() << "mode:" << cboMode() << "count:" << spnCount();
+    });
+    
+    // ========== 测试 watchAll ==========
+    vm.watchAll([](const QString& name, const QVariant& value) {
+        qDebug() << "[watchAll]" << name << "=" << value;
+    });
+    
     // 定义按钮访问器
     auto btnApply = vm.button("btnApply");
     auto btnCancel = vm.button("btnCancel");
