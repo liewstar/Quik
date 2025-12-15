@@ -10,6 +10,7 @@
 #include <QString>
 #include <QMap>
 #include <QFileSystemWatcher>
+#include <QJsonObject>
 #include <functional>
 
 namespace Quik {
@@ -130,6 +131,58 @@ public:
      */
     QVariantList getListData(const QString& name) const;
     
+    // ========== 参数持久化 ==========
+    
+    /**
+     * @brief 保存所有参数到 JSON 文件
+     * @param filePath 文件路径
+     * @param extraData 额外数据（可选），会合并到输出中
+     * @return 是否保存成功
+     * 
+     * 变量名中的点号会自动展开为嵌套结构：
+     * - var="mesh.maxSize" → {"mesh": {"maxSize": 1.0}}
+     * - 列表数据保持数组格式
+     * 
+     * 使用示例：
+     * @code
+     * builder.saveToJson("config.json");
+     * 
+     * // 带额外数据
+     * builder.saveToJson("config.json", {
+     *     {"meta.version", "1.0"},
+     *     {"meta.timestamp", QDateTime::currentDateTime().toString()}
+     * });
+     * @endcode
+     */
+    bool saveToJson(const QString& filePath, const QVariantMap& extraData = {}) const;
+    
+    /**
+     * @brief 从 JSON 文件加载参数
+     * @param filePath 文件路径
+     * @return 是否加载成功
+     * 
+     * 自动处理嵌套结构，恢复到对应的 UI 变量和列表数据
+     * 
+     * 使用示例：
+     * @code
+     * builder.loadFromJson("config.json");
+     * @endcode
+     */
+    bool loadFromJson(const QString& filePath);
+    
+    /**
+     * @brief 导出为 JSON 对象（不写文件）
+     * @param extraData 额外数据
+     * @return JSON 对象
+     */
+    QJsonObject toJsonObject(const QVariantMap& extraData = {}) const;
+    
+    /**
+     * @brief 从 JSON 对象加载（不读文件）
+     * @param json JSON 对象
+     */
+    void fromJsonObject(const QJsonObject& json);
+    
     // ========== 热更新 (Hot Reload) ==========
     
     /**
@@ -233,6 +286,38 @@ private:
      * @return 是否是布局标签
      */
     bool isLayoutTag(const QString& tagName) const;
+    
+    /**
+     * @brief 处理通用 q-for 指令
+     * @param element 带 q-for 属性的元素
+     * @param container 父容器
+     * @param qForExpr q-for 表达式，如 "item in items" 或 "(item, idx) in items"
+     */
+    void processGeneralQFor(const QDomElement& element, QWidget* container, const QString& qForExpr);
+    
+    /**
+     * @brief 根据模板和数据渲染单个组件
+     * @param templateXml 模板 XML 字符串
+     * @param index 当前索引
+     * @param itemData 当前项数据
+     * @param itemVar 循环变量名
+     * @param indexVar 索引变量名
+     * @return 渲染的组件
+     */
+    QWidget* renderQForItem(const QString& templateXml, int index, const QVariantMap& itemData,
+                            const QString& itemVar, const QString& indexVar);
+    
+    /**
+     * @brief 替换字符串中的模板变量
+     * @param str 原始字符串
+     * @param index 当前索引
+     * @param itemData 当前项数据
+     * @param itemVar 循环变量名
+     * @param indexVar 索引变量名
+     * @return 替换后的字符串
+     */
+    QString replaceTemplateVars(const QString& str, int index, const QVariantMap& itemData,
+                                const QString& itemVar, const QString& indexVar) const;
     
 private:
     QuikContext* m_context;

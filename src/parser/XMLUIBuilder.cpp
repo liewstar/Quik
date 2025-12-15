@@ -10,6 +10,10 @@
 #include <QLineEdit>
 #include <QDebug>
 #include <QTimer>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QTextStream>
+#include <QRegularExpression>
 
 namespace Quik {
 
@@ -134,6 +138,162 @@ void XMLUIBuilder::setListData(const QString& name, const QVariantList& items) {
 
 QVariantList XMLUIBuilder::getListData(const QString& name) const {
     return m_listData.value(name);
+}
+
+// ========== 参数持久化实现 ==========
+
+namespace {
+
+// 辅助函数：将点号分隔的 key 设置到嵌套 JSON 对象中
+void setNestedValue(QJsonObject& root, const QString& key, const QJsonValue& value) {
+    QStringList parts = key.split('.');
+    if (parts.isEmpty()) return;
+    
+    if (parts.size() == 1) {
+        root[key] = value;
+        return;
+    }
+    
+    // 递归创建嵌套结构
+    QString firstPart = parts.takeFirst();
+    QString remainingKey = parts.join('.');
+    
+    QJsonObject nested = root[firstPart].toObject();
+    setNestedValue(nested, remainingKey, value);
+    root[firstPart] = nested;
+}
+
+// 辅助函数：将 QVariant 转换为 QJsonValue
+QJsonValue variantToJson(const QVariant& value) {
+    if (value.type() == QVariant::List) {
+        QJsonArray arr;
+        for (const QVariant& item : value.toList()) {
+            arr.append(variantToJson(item));
+        }
+        return arr;
+    } else if (value.type() == QVariant::Map) {
+        QJsonObject obj;
+        QVariantMap map = value.toMap();
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            obj[it.key()] = variantToJson(it.value());
+        }
+        return obj;
+    } else {
+        return QJsonValue::fromVariant(value);
+    }
+}
+
+// 辅助函数：递归扁平化 JSON 对象，将嵌套结构转为点号分隔的 key
+void flattenJson(const QJsonObject& obj, const QString& prefix, QVariantMap& result, QMap<QString, QVariantList>& lists) {
+    for (auto it = obj.begin(); it != obj.end(); ++it) {
+        QString key = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
+        
+        if (it.value().isObject()) {
+            // 递归处理嵌套对象
+            flattenJson(it.value().toObject(), key, result, lists);
+        } else if (it.value().isArray()) {
+            // 数组作为列表数据
+            QVariantList list;
+            for (const QJsonValue& item : it.value().toArray()) {
+                list.append(item.toVariant());
+            }
+            lists[it.key()] = list;  // 列表数据用原始 key（不带前缀）
+        } else {
+            // 普通值
+            result[key] = it.value().toVariant();
+        }
+    }
+}
+
+} // anonymous namespace
+
+QJsonObject XMLUIBuilder::toJsonObject(const QVariantMap& extraData) const {
+    QJsonObject root;
+    
+    // 1. 收集所有 UI 变量值
+    QVariantMap allValues = getAllValues();
+    
+    // 2. 合并额外数据
+    for (auto it = extraData.begin(); it != extraData.end(); ++it) {
+        allValues[it.key()] = it.value();
+    }
+    
+    // 3. 按点号展开成嵌套结构
+    for (auto it = allValues.begin(); it != allValues.end(); ++it) {
+        setNestedValue(root, it.key(), variantToJson(it.value()));
+    }
+    
+    // 4. 添加列表数据
+    for (auto it = m_listData.begin(); it != m_listData.end(); ++it) {
+        root[it.key()] = variantToJson(it.value()).toArray();
+    }
+    
+    return root;
+}
+
+bool XMLUIBuilder::saveToJson(const QString& filePath, const QVariantMap& extraData) const {
+    QJsonObject json = toJsonObject(extraData);
+    QJsonDocument doc(json);
+    
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[Quik] Cannot open file for writing:" << filePath;
+        return false;
+    }
+    
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+    
+    qDebug() << "[Quik] Saved parameters to:" << filePath;
+    return true;
+}
+
+void XMLUIBuilder::fromJsonObject(const QJsonObject& json) {
+    QVariantMap flatValues;
+    QMap<QString, QVariantList> lists;
+    
+    // 1. 扁平化 JSON 对象
+    flattenJson(json, QString(), flatValues, lists);
+    
+    // 2. 恢复 UI 变量值
+    for (auto it = flatValues.begin(); it != flatValues.end(); ++it) {
+        setValue(it.key(), it.value());
+    }
+    
+    // 3. 恢复列表数据
+    for (auto it = lists.begin(); it != lists.end(); ++it) {
+        setListData(it.key(), it.value());
+    }
+    
+    qDebug() << "[Quik] Loaded" << flatValues.size() << "values and" << lists.size() << "lists";
+}
+
+bool XMLUIBuilder::loadFromJson(const QString& filePath) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[Quik] Cannot open file for reading:" << filePath;
+        return false;
+    }
+    
+    QByteArray data = file.readAll();
+    file.close();
+    
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if (error.error != QJsonParseError::NoError) {
+        qWarning() << "[Quik] JSON parse error:" << error.errorString();
+        return false;
+    }
+    
+    if (!doc.isObject()) {
+        qWarning() << "[Quik] JSON root is not an object";
+        return false;
+    }
+    
+    fromJsonObject(doc.object());
+    
+    qDebug() << "[Quik] Loaded parameters from:" << filePath;
+    return true;
 }
 
 // ========== 热更新实现 ==========
@@ -368,6 +528,14 @@ void XMLUIBuilder::processChildren(const QDomElement& element, QWidget* containe
             continue;
         }
         
+        // ========== 处理通用 q-for ==========
+        QString qFor = child.attribute("q-for");
+        if (!qFor.isEmpty()) {
+            processGeneralQFor(child, container, qFor);
+            child = child.nextSiblingElement();
+            continue;
+        }
+        
         QWidget* childWidget = buildElement(child, container);
         
         if (childWidget) {
@@ -457,6 +625,151 @@ bool XMLUIBuilder::isLayoutTag(const QString& tagName) const {
         "HBoxLayout", "VBoxLayout", "FormLayout", "GridLayout"
     };
     return layouts.contains(tagName);
+}
+
+// ========== 通用 q-for 实现 ==========
+
+void XMLUIBuilder::processGeneralQFor(const QDomElement& element, QWidget* container, const QString& qForExpr) {
+    // 解析 q-for 表达式
+    QString itemVar, indexVar, listName;
+    
+    // 尝试匹配带索引的格式: (item, index) in listName
+    QRegularExpression reWithIndex("\\(\\s*(\\w+)\\s*,\\s*(\\w+)\\s*\\)\\s+in\\s+(\\w+)");
+    QRegularExpressionMatch matchWithIndex = reWithIndex.match(qForExpr);
+    
+    if (matchWithIndex.hasMatch()) {
+        itemVar = matchWithIndex.captured(1);
+        indexVar = matchWithIndex.captured(2);
+        listName = matchWithIndex.captured(3);
+    } else {
+        // 尝试匹配简单格式: item in listName
+        QRegularExpression reSimple("(\\w+)\\s+in\\s+(\\w+)");
+        QRegularExpressionMatch matchSimple = reSimple.match(qForExpr);
+        if (matchSimple.hasMatch()) {
+            itemVar = matchSimple.captured(1);
+            listName = matchSimple.captured(2);
+        }
+    }
+    
+    if (itemVar.isEmpty() || listName.isEmpty()) {
+        qWarning() << "[Quik] Invalid q-for expression:" << qForExpr;
+        return;
+    }
+    
+    // 将元素转换为 XML 字符串作为模板
+    QString templateXml;
+    QTextStream stream(&templateXml);
+    element.save(stream, 0);
+    
+    // 移除 q-for 属性，避免递归
+    templateXml.replace(QRegularExpression("\\s*q-for\\s*=\\s*\"[^\"]*\""), "");
+    
+    qDebug() << "[Quik] Processing general q-for:" << qForExpr;
+    qDebug() << "[Quik] Template:" << templateXml.left(100) << "...";
+    
+    // 创建一个占位容器用于放置动态生成的组件
+    auto* placeholder = new QWidget(container);
+    placeholder->setObjectName(QString("_qfor_%1").arg(listName));
+    auto* placeholderLayout = new QVBoxLayout(placeholder);
+    placeholderLayout->setContentsMargins(0, 0, 0, 0);
+    placeholderLayout->setSpacing(5);
+    
+    // 添加到父容器
+    if (QLayout* parentLayout = container->layout()) {
+        parentLayout->addWidget(placeholder);
+    }
+    
+    // 捕获 this 和必要变量用于回调
+    QString capturedItemVar = itemVar;
+    QString capturedIndexVar = indexVar;
+    
+    // 注册通用 q-for 绑定
+    m_context->registerGeneralQFor(
+        listName, itemVar, indexVar, placeholder, templateXml,
+        [this, capturedItemVar, capturedIndexVar](const QString& tpl, int idx, const QVariantMap& data) -> QWidget* {
+            return renderQForItem(tpl, idx, data, capturedItemVar, capturedIndexVar);
+        }
+    );
+}
+
+QWidget* XMLUIBuilder::renderQForItem(const QString& templateXml, int index, const QVariantMap& itemData,
+                                       const QString& itemVar, const QString& indexVar) {
+    // 替换模板中的变量
+    QString processedXml = replaceTemplateVars(templateXml, index, itemData, itemVar, indexVar);
+    
+    qDebug() << "[Quik] Rendering q-for item" << index << ":" << processedXml.left(200);
+    
+    // 解析替换后的 XML
+    QDomDocument doc;
+    QString errorMsg;
+    if (!doc.setContent(processedXml, &errorMsg)) {
+        qWarning() << "[Quik] Failed to parse q-for template:" << errorMsg;
+        qWarning() << "[Quik] Processed XML:" << processedXml;
+        return nullptr;
+    }
+    
+    QDomElement element = doc.documentElement();
+    if (element.isNull()) {
+        return nullptr;
+    }
+    
+    // 使用现有的 buildElement 创建组件
+    QWidget* widget = buildElement(element, nullptr);
+    
+    if (widget) {
+        // 处理 visible 属性绑定
+        QString visible = element.attribute("visible");
+        if (!visible.isEmpty()) {
+            if (ExpressionParser::isExpression(visible)) {
+                m_context->bindVisible(widget, visible);
+            } else {
+                widget->setVisible(visible == "true" || visible == "1");
+            }
+        }
+        
+        // 处理 enabled 属性绑定
+        QString enabled = element.attribute("enabled");
+        if (!enabled.isEmpty()) {
+            if (ExpressionParser::isExpression(enabled)) {
+                m_context->bindEnabled(widget, enabled);
+            } else {
+                widget->setEnabled(enabled == "true" || enabled == "1");
+            }
+        }
+    }
+    
+    return widget;
+}
+
+QString XMLUIBuilder::replaceTemplateVars(const QString& str, int index, const QVariantMap& itemData,
+                                          const QString& itemVar, const QString& indexVar) const {
+    QString result = str;
+    
+    // 替换索引变量 $idx 或 $index
+    if (!indexVar.isEmpty()) {
+        result.replace(QString("$%1").arg(indexVar), QString::number(index));
+    }
+    
+    // 替换 $item.xxx 格式的变量
+    for (auto it = itemData.begin(); it != itemData.end(); ++it) {
+        QString placeholder = QString("$%1.%2").arg(itemVar).arg(it.key());
+        result.replace(placeholder, it.value().toString());
+    }
+    
+    // 替换 var 属性中的动态部分，如 var="data.$idx.name" → var="data.0.name"
+    if (!indexVar.isEmpty()) {
+        QRegularExpression varPattern(QString("var\\s*=\\s*\"([^\"]*\\$%1[^\"]*)\"").arg(indexVar));
+        QRegularExpressionMatchIterator matches = varPattern.globalMatch(result);
+        while (matches.hasNext()) {
+            QRegularExpressionMatch match = matches.next();
+            QString original = match.captured(0);
+            QString varValue = match.captured(1);
+            QString newVarValue = varValue.replace(QString("$%1").arg(indexVar), QString::number(index));
+            result.replace(original, QString("var=\"%1\"").arg(newVarValue));
+        }
+    }
+    
+    return result;
 }
 
 void XMLUIBuilder::showErrorOverlay(const QString& errorMsg, int line, int column) {

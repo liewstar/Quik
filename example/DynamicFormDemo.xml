@@ -1,0 +1,21 @@
+<Panel>
+    <GroupBox title="动态配置切换示例">
+        <!-- 配置选择器（动态选项） -->
+        <ComboBox title="选择配置" var="selectedConfig" default="0">
+            <Choice q-for="(item, idx) in configs" text="$item.name" val="$idx"/>
+        </ComboBox>
+        
+        <!-- 动态表单：根据 selectedConfig 显示对应的表单 -->
+        <GroupBox q-for="(form, idx) in forms" title="$form.name 参数" visible="$selectedConfig==$idx">
+            <LineEdit var="formData.$idx.name" title="名称"/>
+            <DoubleSpinBox var="formData.$idx.value" title="数值" min="0" max="100"/>
+            <CheckBox var="formData.$idx.enabled" text="启用"/>
+        </GroupBox>
+    </GroupBox>
+    
+    <HLayoutWidget>
+        <PushButton text="添加配置" var="btnAdd"/>
+        <PushButton text="删除配置" var="btnRemove"/>
+        <PushButton text="打印数据" var="btnPrint"/>
+    </HLayoutWidget>
+</Panel>

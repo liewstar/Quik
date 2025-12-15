@@ -23,7 +23,7 @@ HEADERS += \
     $$PWD/../src/widget/WidgetFactory.h
 
 SOURCES += \
-    main.cpp \
+    DynamicFormDemo.cpp \
     $$PWD/../src/core/QuikContext.cpp \
     $$PWD/../src/core/QuikViewModel.cpp \
     $$PWD/../src/parser/ExpressionParser.cpp \

@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QSlider>
 #include <QProgressBar>
+#include <QLayout>
 #include <QDebug>
 
 namespace Quik {
@@ -342,6 +343,7 @@ void QuikContext::unwatch(const QString& name) {
 void QuikContext::setListData(const QString& name, const QVariantList& items) {
     m_listData[name] = items;
     updateQForBindings(name);
+    updateGeneralQForBindings(name);  // 同时更新通用 q-for
 }
 
 void QuikContext::registerQForBinding(QWidget* widget, const QString& listName,
@@ -413,6 +415,114 @@ void QuikContext::updateQForBindings(const QString& listName) {
             if (comboBox->count() > 0) {
                 comboBox->setCurrentIndex(newIndex);
             }
+        }
+    }
+}
+
+// ========== 通用 q-for 支持 ==========
+
+void QuikContext::registerGeneralQFor(const QString& listName, const QString& itemVar,
+                                       const QString& indexVar, QWidget* container,
+                                       const QString& templateXml,
+                                       std::function<QWidget*(const QString&, int, const QVariantMap&)> renderCallback) {
+    GeneralQForBinding binding;
+    binding.listName = listName;
+    binding.itemVar = itemVar;
+    binding.indexVar = indexVar;
+    binding.container = container;
+    binding.templateXml = templateXml;
+    binding.renderCallback = renderCallback;
+    m_generalQForBindings.append(binding);
+    
+    qDebug() << "[Quik] Registered general q-for for list:" << listName;
+    
+    // 如果数据源已存在，立即更新
+    if (m_listData.contains(listName)) {
+        updateGeneralQForBindings(listName);
+    }
+}
+
+void QuikContext::updateGeneralQForBindings(const QString& listName) {
+    QVariantList items = m_listData.value(listName);
+    
+    for (GeneralQForBinding& binding : m_generalQForBindings) {
+        if (binding.listName != listName) continue;
+        if (!binding.container || !binding.renderCallback) continue;
+        
+        QLayout* layout = binding.container->layout();
+        if (!layout) continue;
+        
+        // 1. 删除旧的渲染组件并清理绑定
+        for (QWidget* widget : binding.renderedWidgets) {
+            cleanupWidgetBindings(widget);
+            layout->removeWidget(widget);
+            widget->deleteLater();
+        }
+        binding.renderedWidgets.clear();
+        
+        // 2. 根据新数据渲染组件
+        int idx = 0;
+        for (const QVariant& itemData : items) {
+            QVariantMap itemMap = itemData.toMap();
+            
+            // 调用渲染回调创建组件
+            QWidget* widget = binding.renderCallback(binding.templateXml, idx, itemMap);
+            if (widget) {
+                layout->addWidget(widget);
+                binding.renderedWidgets.append(widget);
+            }
+            ++idx;
+        }
+        
+        qDebug() << "[Quik] Updated general q-for:" << listName << "rendered" << idx << "items";
+        
+        // 3. 应用新创建组件的绑定（确保 visible 等属性正确初始化）
+        for (const PropertyBinding& propBinding : m_allBindings) {
+            if (propBinding.widget && propBinding.widget->parent()) {
+                // 检查是否是新创建的组件（在 renderedWidgets 中或其子组件）
+                for (QWidget* rendered : binding.renderedWidgets) {
+                    if (propBinding.widget == rendered || rendered->isAncestorOf(propBinding.widget)) {
+                        applyBinding(propBinding);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void QuikContext::cleanupWidgetBindings(QWidget* widget) {
+    if (!widget) return;
+    
+    // 递归清理子组件
+    for (QWidget* child : widget->findChildren<QWidget*>()) {
+        cleanupWidgetBindings(child);
+    }
+    
+    // 清理 m_widgets 中的注册
+    for (auto it = m_widgets.begin(); it != m_widgets.end(); ) {
+        it.value().removeAll(widget);
+        if (it.value().isEmpty()) {
+            it = m_widgets.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+    // 清理 m_dependencies 中的绑定
+    for (auto it = m_dependencies.begin(); it != m_dependencies.end(); ++it) {
+        QList<PropertyBinding>& bindings = it.value();
+        for (int i = bindings.size() - 1; i >= 0; --i) {
+            if (bindings[i].widget == widget) {
+                bindings.removeAt(i);
+            }
+        }
+    }
+    
+    // 清理 m_allBindings
+    for (int i = m_allBindings.size() - 1; i >= 0; --i) {
+        if (m_allBindings[i].widget == widget) {
+            m_allBindings.removeAt(i);
         }
     }
 }

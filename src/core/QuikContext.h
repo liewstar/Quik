@@ -184,7 +184,7 @@ private:
     // 循环渲染数据源 (q-for)
     QMap<QString, QVariantList> m_listData;
     
-    // q-for 绑定信息
+    // q-for 绑定信息（ComboBox Choice 专用）
     struct QForBinding {
         QWidget* widget;        // ComboBox 等组件
         QString listName;       // 数据源名称
@@ -204,6 +204,51 @@ public:
     
 private:
     void updateQForBindings(const QString& listName);
+    
+    // ========== 通用 q-for 支持 ==========
+public:
+    /**
+     * @brief 通用 q-for 绑定信息
+     * 用于动态渲染任意组件
+     */
+    struct GeneralQForBinding {
+        QString listName;           // 数据源名称
+        QString itemVar;            // 循环变量名 (如 "item")
+        QString indexVar;           // 索引变量名 (如 "idx")
+        QWidget* container;         // 父容器
+        QString templateXml;        // 模板 XML 字符串
+        QList<QWidget*> renderedWidgets;  // 已渲染的组件
+        std::function<QWidget*(const QString&, int, const QVariantMap&)> renderCallback;  // 渲染回调
+    };
+    
+    /**
+     * @brief 注册通用 q-for 绑定
+     * @param listName 数据源名称
+     * @param itemVar 循环变量名
+     * @param indexVar 索引变量名
+     * @param container 父容器
+     * @param templateXml 模板 XML
+     * @param renderCallback 渲染回调函数
+     */
+    void registerGeneralQFor(const QString& listName, const QString& itemVar, 
+                             const QString& indexVar, QWidget* container,
+                             const QString& templateXml,
+                             std::function<QWidget*(const QString&, int, const QVariantMap&)> renderCallback);
+    
+    /**
+     * @brief 获取所有通用 q-for 绑定
+     */
+    QList<GeneralQForBinding>& generalQForBindings() { return m_generalQForBindings; }
+    
+private:
+    QList<GeneralQForBinding> m_generalQForBindings;
+    void updateGeneralQForBindings(const QString& listName);
+    
+    /**
+     * @brief 清理与指定组件相关的所有绑定和注册
+     * @param widget 要清理的组件
+     */
+    void cleanupWidgetBindings(QWidget* widget);
 };
 
 } // namespace Quik
