@@ -8,6 +8,8 @@
 
 [📖 文档](https://liewstar.github.io/quik-docs/) · [🚀 快速开始](#快速开始) · [💡 示例](#示例) · [🤝 贡献](#贡献)
 
+[English](README_EN.md) | 中文
+
 </div>
 
 ---
@@ -156,3 +158,11 @@ builder.connectButton("btnOk", []() {
 Made with ❤️ by [liewstar](https://github.com/liewstar)
 
 </div>
+
+## 🔗 相关项目
+
+| 项目 | 描述 | 链接 |
+|------|------|------|
+| **Quik** | 核心框架 | [GitHub](https://github.com/liewstar/quik) |
+| **Quik Docs** | 官方文档 | [GitHub](https://github.com/liewstar/quik-docs) · [在线文档](https://liewstar.github.io/quik-docs/) |
+| **Quik VSCode** | VSCode 预览插件 | [GitHub](https://github.com/liewstar/quik-vscode) |
