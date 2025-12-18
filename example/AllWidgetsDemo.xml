@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Panel title="Widget Gallery" width="700" height="600">
+    <HLayoutWidget>
+        <!-- 左侧列 -->
+        <VLayoutWidget>
+            <!-- 按钮组 -->
+            <GroupBox title="Buttons">
+                <HLayoutWidget>
+                    <VLayoutWidget>
+                        <PushButton text="Default Push Button" var="btnDefault"/>
+                        <PushButton text="Toggle Push Button" var="btnToggle"/>
+                        <PushButton text="Flat Push Button" var="btnFlat"/>
+                        <HLayoutWidget>
+                            <PushButton text="Tool Button" var="btnTool" fixedWidth="80"/>
+                            <PushButton text="Menu Button" var="btnMenu" fixedWidth="80"/>
+                        </HLayoutWidget>
+                    </VLayoutWidget>
+                    <VLayoutWidget>
+                        <RadioButton text="Radio button 1" var="radio1" default="true"/>
+                        <RadioButton text="Radio button 2" var="radio2"/>
+                        <RadioButton text="Radio button 3" var="radio3"/>
+                        <CheckBox text="Tri-state check box" var="triCheck"/>
+                    </VLayoutWidget>
+                </HLayoutWidget>
+            </GroupBox>
+            
+            <!-- 简单输入组件 -->
+            <GroupBox title="Simple Input Widgets">
+                <LineEdit title="Password" var="password" placeholder="Enter password"/>
+                <SpinBox title="SpinBox" var="spinbox" min="0" max="100" default="50"/>
+                <DateTimeEdit title="DateTime" var="datetime" format="yyyy/M/d HH:mm"/>
+                <HLayoutWidget>
+                    <Slider var="slider" min="0" max="100" default="50"/>
+                    <Dial var="dial" min="0" max="100" default="50" fixedWidth="50" fixedHeight="50"/>
+                </HLayoutWidget>
+            </GroupBox>
+            
+            <!-- 选项卡视图 -->
+            <GroupBox title="Tab Views">
+                <TabBar var="tabView">
+                    <Choice text="Tree View" val="tree"/>
+                    <Choice text="Table" val="table"/>
+                    <Choice text="List" val="list"/>
+                    <Choice text="Icon Mode List" val="icon"/>
+                </TabBar>
+                <ListBox var="listView" fixedHeight="120">
+                </ListBox>
+            </GroupBox>
+        </VLayoutWidget>
+        
+        <!-- 右侧列 -->
+        <VLayoutWidget>
+            <!-- 更多输入组件 -->
+            <GroupBox title="More Input Widgets">
+                <ComboBox title="Style" var="styleCombo">
+                    <Choice text="windowsvista" val="vista"/>
+                    <Choice text="Windows" val="windows"/>
+                    <Choice text="Fusion" val="fusion"/>
+                </ComboBox>
+                <DoubleSpinBox title="Double" var="doubleSpinbox" min="0" max="100" default="3.14" decimals="2"/>
+                <LineEdit title="Validated" var="validatedEdit" valid="double" min="0" max="100"/>
+            </GroupBox>
+            
+            <!-- 文本编辑器 -->
+            <GroupBox title="Text Edit">
+                <TextEdit var="richTextEdit" fixedHeight="100" 
+                    default="&lt;i&gt;Twinkle, twinkle, little star,&lt;/i&gt;&lt;br/&gt;How I wonder what you are.&lt;br/&gt;Up above the world so high,&lt;br/&gt;Like a diamond in the sky.&lt;br/&gt;&lt;i&gt;Twinkle, twinkle, little star,&lt;/i&gt;&lt;br/&gt;&lt;b&gt;How I wonder what you are!&lt;/b&gt;"/>
+            </GroupBox>
+            
+            <!-- 纯文本编辑器 -->
+            <GroupBox title="Plain Text Edit">
+                <PlainTextEdit var="plainTextEdit" fixedHeight="60" placeholder="Enter plain text here..."/>
+            </GroupBox>
+            
+            <!-- 进度条 -->
+            <ProgressBar var="progress" min="0" max="100" default="22"/>
+            <Label text="22%" var="progressLabel" align="right"/>
+            
+            <!-- 底部按钮 -->
+            <HLayoutWidget>
+                <addStretch/>
+                <PushButton text="Close" var="btnClose" fixedWidth="80"/>
+                <PushButton text="Help" var="btnHelp" fixedWidth="80"/>
+            </HLayoutWidget>
+        </VLayoutWidget>
+    </HLayoutWidget>
+</Panel>

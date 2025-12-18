@@ -1,7 +1,12 @@
 <Panel>
-    <CheckBox title="高级模式" var="chkAdvanced"/>
-    <CheckBox title="启用日志" var="chkLog"/>
-    <LineEdit title="日志路径" var="txtLogPath"
-              visible="$chkAdvanced==1 and $chkLog==1"/>
-  <addStretch/>
+    <Label text="欢迎使用 Quik!" alignment="center"/>
+    <LineEdit title="姓名" var="name" default=""/>
+    <Slider title="数值" var="value" min="0" max="100"/>
+    <ProgressBar var="value" min="0" max="100"/>
+    <CheckBox title="启用按钮" var="btnActive" default="0"/>
+    <PushButton text="点击我" enabled="$btnActive==1"/>
+    <CheckBox title="显示提示" var="showTip" default="0"/>
+    <Label text="✓ 提示已开启" visible="$showTip==1"/>
+    <Label text="✓ 滑块=50 且 提示开启" visible="$value==50 and $showTip==1"/>
+    <addStretch/>
 </Panel>

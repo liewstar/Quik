@@ -59,10 +59,16 @@
 #include "parser/XMLUIBuilder.h"
 #include "core/QuikViewModel.h"
 #include <QFileInfo>
+#include <QFile>
 
 /**
- * @brief 获取与当前源文件同级目录下的XML文件路径
+ * @brief 获取XML文件路径，优先从Qt资源系统加载
  * @param filename XML文件名（如 "MyPanel.xml"）
+ * 
+ * 查找顺序：
+ * 1. Qt资源系统 (:/filename) - 适用于发布版本
+ * 2. 源文件同级目录 - 适用于开发时热更新
+ * 3. 当前工作目录 - 兜底方案
  * 
  * 使用示例：
  * @code
@@ -72,15 +78,28 @@
  * @endcode
  */
 inline QString QuikXmlPath(const char* file, const char* xmlName) {
+    QString name = QString::fromLocal8Bit(xmlName);
+    
+    // 1. 优先检查Qt资源系统
+    QString qrcPath = ":/" + name;
+    if (QFile::exists(qrcPath)) {
+        return qrcPath;
+    }
+    
+    // 2. 尝试源文件同级目录（开发时热更新）
     QString path = QString::fromLocal8Bit(file);
     int lastSlash = path.lastIndexOf('/');
     int lastBackslash = path.lastIndexOf('\\');
     int pos = qMax(lastSlash, lastBackslash);
     if (pos >= 0) {
-        return path.left(pos + 1) + QString::fromLocal8Bit(xmlName);
+        QString filePath = path.left(pos + 1) + name;
+        if (QFile::exists(filePath)) {
+            return filePath;
+        }
     }
-    // __FILE__ 没有路径信息，返回原始文件名（需要用户确保工作目录正确）
-    return QString::fromLocal8Bit(xmlName);
+    
+    // 3. 兜底：返回原始文件名（当前工作目录）
+    return name;
 }
 #define Quik_XML(filename) QuikXmlPath(__FILE__, filename)
 

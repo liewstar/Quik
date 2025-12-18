@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>modern.qss</file>
+        <file>ExamplePanel.xml</file>
+        <file>AllWidgetsDemo.xml</file>
+        <file>DynamicFormDemo.xml</file>
+    </qresource>
+</RCC>

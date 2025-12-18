@@ -3,12 +3,69 @@
 #include <QVBoxLayout>
 #include <QDebug>
 #include <QTimer>
+#include <QFile>
+#include <QMessageBox>
 #include "Quik/Quik.h"
+#include "AllWidgetsNative.h"
+
+// 运行模式：
+// 无参数或 "example" - 运行原有示例
+// "gallery" - 运行Quik版Widget Gallery
+// "native" - 运行原生QWidget版Widget Gallery
+// "compare" - 同时显示两个版本进行对比
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     
+    // 加载现代化QSS样式表（从Qt资源系统）
+    QFile styleFile(":/modern.qss");
+    if (styleFile.open(QFile::ReadOnly | QFile::Text)) {
+        app.setStyleSheet(styleFile.readAll());
+        styleFile.close();
+    }
+    
+    QString mode = (argc > 1) ? QString(argv[1]) : "example";
+    
+    // ========== Widget Gallery 对比模式 ==========
+    if (mode == "gallery") {
+        // Quik XML版本
+        QDialog dialog;
+        dialog.setWindowTitle("Widget Gallery (Quik XML)");
+        auto* layout = new QVBoxLayout(&dialog);
+        Quik::XMLUIBuilder builder;
+        QWidget* ui = Quik_BUILD(builder, "AllWidgetsDemo.xml");
+        layout->addWidget(ui);
+        return dialog.exec();
+    }
+    
+    if (mode == "native") {
+        // 原生QWidget版本
+        AllWidgetsNative nativeWidget;
+        nativeWidget.show();
+        return app.exec();
+    }
+    
+    if (mode == "compare") {
+        // 同时显示两个版本
+        QDialog quikDialog;
+        quikDialog.setWindowTitle("Widget Gallery (Quik XML) - ~90 lines XML");
+        auto* layout = new QVBoxLayout(&quikDialog);
+        Quik::XMLUIBuilder builder;
+        QWidget* ui = Quik_BUILD(builder, "AllWidgetsDemo.xml");
+        layout->addWidget(ui);
+        quikDialog.move(100, 100);
+        quikDialog.show();
+        
+        AllWidgetsNative nativeWidget;
+        nativeWidget.setWindowTitle("Widget Gallery (Native) - ~200 lines C++");
+        nativeWidget.move(820, 100);
+        nativeWidget.show();
+        
+        return app.exec();
+    }
+    
+    // ========== 原有示例模式 ==========
     // Create dialog
     QDialog dialog;
     dialog.setWindowTitle("Quik Example");

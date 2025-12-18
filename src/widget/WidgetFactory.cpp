@@ -20,6 +20,10 @@
 #include <QTabBar>
 #include <QSlider>
 #include <QProgressBar>
+#include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QDateTimeEdit>
+#include <QDial>
 #include <QDebug>
 
 namespace Quik {
@@ -88,6 +92,10 @@ void WidgetFactory::registerBuiltinWidgets() {
     registerCreator("TwoPointLineEdit", createTwoPointLineEdit);
     registerCreator("Slider", createSlider);
     registerCreator("ProgressBar", createProgressBar);
+    registerCreator("TextEdit", createTextEdit);
+    registerCreator("PlainTextEdit", createPlainTextEdit);
+    registerCreator("DateTimeEdit", createDateTimeEdit);
+    registerCreator("Dial", createDial);
     
     m_initialized = true;
     qDebug() << "[Quik] Registered" << m_creators.size() << "builtin widgets";
@@ -940,6 +948,119 @@ QWidget* WidgetFactory::createProgressBar(const QDomElement& element, QuikContex
     
     applyCommonAttributes(progressBar, element, context);
     return progressBar;
+}
+
+QWidget* WidgetFactory::createTextEdit(const QDomElement& element, QuikContext* context) {
+    auto* textEdit = new QTextEdit();
+    
+    // 默认文本
+    QString defaultVal = getAttribute(element, "default");
+    if (!defaultVal.isEmpty()) {
+        textEdit->setText(defaultVal);
+    }
+    
+    // 占位符
+    QString placeholder = getAttribute(element, "placeholder");
+    if (!placeholder.isEmpty()) {
+        textEdit->setPlaceholderText(placeholder);
+    }
+    
+    // 只读
+    bool readOnly = getBoolAttribute(element, "readOnly", false);
+    textEdit->setReadOnly(readOnly);
+    
+    // 是否接受富文本
+    bool acceptRichText = getBoolAttribute(element, "richText", true);
+    textEdit->setAcceptRichText(acceptRichText);
+    
+    applyCommonAttributes(textEdit, element, context);
+    return textEdit;
+}
+
+QWidget* WidgetFactory::createPlainTextEdit(const QDomElement& element, QuikContext* context) {
+    auto* textEdit = new QPlainTextEdit();
+    
+    // 默认文本
+    QString defaultVal = getAttribute(element, "default");
+    if (!defaultVal.isEmpty()) {
+        textEdit->setPlainText(defaultVal);
+    }
+    
+    // 占位符
+    QString placeholder = getAttribute(element, "placeholder");
+    if (!placeholder.isEmpty()) {
+        textEdit->setPlaceholderText(placeholder);
+    }
+    
+    // 只读
+    bool readOnly = getBoolAttribute(element, "readOnly", false);
+    textEdit->setReadOnly(readOnly);
+    
+    // 行号换行模式
+    QString lineWrap = getAttribute(element, "lineWrap", "widget");
+    if (lineWrap == "none") {
+        textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
+    } else {
+        textEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+    }
+    
+    applyCommonAttributes(textEdit, element, context);
+    return textEdit;
+}
+
+QWidget* WidgetFactory::createDateTimeEdit(const QDomElement& element, QuikContext* context) {
+    auto* dateTimeEdit = new QDateTimeEdit();
+    
+    // 显示格式
+    QString format = getAttribute(element, "format");
+    if (!format.isEmpty()) {
+        dateTimeEdit->setDisplayFormat(format);
+    } else {
+        dateTimeEdit->setDisplayFormat("yyyy/M/d HH:mm");
+    }
+    
+    // 是否显示日历弹窗
+    bool calendarPopup = getBoolAttribute(element, "calendarPopup", true);
+    dateTimeEdit->setCalendarPopup(calendarPopup);
+    
+    // 默认值
+    QString defaultVal = getAttribute(element, "default");
+    if (defaultVal == "now" || defaultVal.isEmpty()) {
+        dateTimeEdit->setDateTime(QDateTime::currentDateTime());
+    } else {
+        QDateTime dt = QDateTime::fromString(defaultVal, dateTimeEdit->displayFormat());
+        if (dt.isValid()) {
+            dateTimeEdit->setDateTime(dt);
+        }
+    }
+    
+    applyCommonAttributes(dateTimeEdit, element, context);
+    return dateTimeEdit;
+}
+
+QWidget* WidgetFactory::createDial(const QDomElement& element, QuikContext* context) {
+    auto* dial = new QDial();
+    
+    int min = getIntAttribute(element, "min", 0);
+    int max = getIntAttribute(element, "max", 100);
+    int defaultVal = getIntAttribute(element, "default", min);
+    int step = getIntAttribute(element, "step", 1);
+    
+    dial->setRange(min, max);
+    dial->setValue(defaultVal);
+    dial->setSingleStep(step);
+    dial->setPageStep(step * 10);
+    
+    // 是否显示刻度
+    bool notchesVisible = getBoolAttribute(element, "notches", false);
+    dial->setNotchesVisible(notchesVisible);
+    
+    // 是否环绕
+    bool wrapping = getBoolAttribute(element, "wrapping", false);
+    dial->setWrapping(wrapping);
+    
+    applyCommonAttributes(dial, element, context);
+    return dial;
 }
 
 } // namespace Quik

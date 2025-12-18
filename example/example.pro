@@ -20,12 +20,16 @@ HEADERS += \
     $$PWD/../src/core/QuikViewModel.h \
     $$PWD/../src/parser/ExpressionParser.h \
     $$PWD/../src/parser/XMLUIBuilder.h \
-    $$PWD/../src/widget/WidgetFactory.h
+    $$PWD/../src/widget/WidgetFactory.h \
+    AllWidgetsNative.h
 
 SOURCES += \
-    DynamicFormDemo.cpp \
+    main.cpp \
+    AllWidgetsNative.cpp \
     $$PWD/../src/core/QuikContext.cpp \
     $$PWD/../src/core/QuikViewModel.cpp \
     $$PWD/../src/parser/ExpressionParser.cpp \
     $$PWD/../src/parser/XMLUIBuilder.cpp \
     $$PWD/../src/widget/WidgetFactory.cpp
+
+RESOURCES += resources.qrc

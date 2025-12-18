@@ -89,6 +89,10 @@ private:
     static QWidget* createTwoPointLineEdit(const QDomElement& element, QuikContext* context);
     static QWidget* createSlider(const QDomElement& element, QuikContext* context);
     static QWidget* createProgressBar(const QDomElement& element, QuikContext* context);
+    static QWidget* createTextEdit(const QDomElement& element, QuikContext* context);
+    static QWidget* createPlainTextEdit(const QDomElement& element, QuikContext* context);
+    static QWidget* createDateTimeEdit(const QDomElement& element, QuikContext* context);
+    static QWidget* createDial(const QDomElement& element, QuikContext* context);
     
     // ========== 辅助方法 ==========
     static void applyCommonAttributes(QWidget* widget, const QDomElement& element, QuikContext* context);
